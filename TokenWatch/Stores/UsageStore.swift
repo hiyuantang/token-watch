@@ -41,7 +41,8 @@ final class UsageStore: ObservableObject {
             let result = await Task.detached(priority: .utility) {
                 scanner.scan(
                     claudeRoot: selectedFolders[.claudeCode],
-                    codexRoot: selectedFolders[.codex]
+                    codexRoot: selectedFolders[.codex],
+                    openCodeRoot: selectedFolders[.openCode]
                 )
             }.value
 

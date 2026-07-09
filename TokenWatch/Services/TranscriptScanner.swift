@@ -2,7 +2,7 @@ import Foundation
 
 /// Reads JSONL as bytes and decodes only whitelisted usage metadata. Prompt and response text are never decoded.
 struct TranscriptScanner: Sendable {
-    func scan(claudeRoot: URL?, codexRoot: URL?, now: Date = Date()) -> ScanResult {
+    func scan(claudeRoot: URL?, codexRoot: URL?, openCodeRoot: URL?, now: Date = Date()) -> ScanResult {
         var events: [UsageEvent] = []
         var healthByProvider = Dictionary(
             uniqueKeysWithValues: UsageProvider.allCases.map { ($0, SourceHealth.unconfigured($0)) }
@@ -10,11 +10,25 @@ struct TranscriptScanner: Sendable {
 
         scanClaude(root: claudeRoot, events: &events, health: &healthByProvider[.claudeCode], now: now)
         scanCodex(root: codexRoot, events: &events, health: &healthByProvider[.codex], now: now)
+        scanOpenCode(root: openCodeRoot, events: &events, health: &healthByProvider[.openCode], now: now)
 
         return ScanResult(
             events: events.sorted { $0.timestamp < $1.timestamp },
             sources: UsageProvider.allCases.compactMap { healthByProvider[$0] }
         )
+    }
+
+    private func scanOpenCode(
+        root: URL?,
+        events: inout [UsageEvent],
+        health: inout SourceHealth?,
+        now: Date
+    ) {
+        let result = OpenCodeScanner().scan(root: root, now: now)
+        events.append(contentsOf: result.events)
+        if let openCodeHealth = result.sources.first {
+            health = openCodeHealth
+        }
     }
 
     private func scanClaude(

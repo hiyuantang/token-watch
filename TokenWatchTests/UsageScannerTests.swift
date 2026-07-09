@@ -15,7 +15,7 @@ final class UsageScannerTests: XCTestCase {
         """
         try transcript.data(using: .utf8)!.write(to: projects.appendingPathComponent("session.jsonl"))
 
-        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil)
+        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)
 
         XCTAssertEqual(result.events.count, 1)
         XCTAssertEqual(result.events.first?.provider, .claudeCode)
@@ -38,7 +38,7 @@ final class UsageScannerTests: XCTestCase {
         """
         try transcript.data(using: .utf8)!.write(to: sessions.appendingPathComponent("rollout-test.jsonl"))
 
-        let result = TranscriptScanner().scan(claudeRoot: nil, codexRoot: root)
+        let result = TranscriptScanner().scan(claudeRoot: nil, codexRoot: root, openCodeRoot: nil)
 
         XCTAssertEqual(result.events.map(\.usage.recordedTotal), [10, 8, 2])
         XCTAssertEqual(result.events.map(\.model), ["gpt-test", "gpt-test", "gpt-reset"])
@@ -47,7 +47,7 @@ final class UsageScannerTests: XCTestCase {
 
     func testMissingExpectedDirectoryIsVisibleAsSourceHealth() throws {
         let root = try makeTemporaryDirectory(named: ".claude")
-        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil)
+        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)
         let claude = try XCTUnwrap(result.sources.first { $0.provider == .claudeCode })
 
         XCTAssertEqual(claude.state, .missingExpectedDirectory)
@@ -65,13 +65,53 @@ final class UsageScannerTests: XCTestCase {
         """
         try transcript.data(using: .utf8)!.write(to: projects.appendingPathComponent("session.jsonl"))
 
-        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil)
+        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)
 
         XCTAssertEqual(result.events.count, 1)
         XCTAssertEqual(result.events.first?.model, "claude-test")
         XCTAssertEqual(result.events.first?.usage.recordedTotal, 19)
         let claude = try XCTUnwrap(result.sources.first { $0.provider == .claudeCode })
         XCTAssertEqual(claude.malformedLines, 0)
+    }
+
+    func testThreeProvidersMergeThroughTranscriptScanner() throws {
+        let claudeRoot = try makeTemporaryDirectory(named: ".claude")
+        let projects = claudeRoot.appendingPathComponent("projects/session", isDirectory: true)
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+        var claudeLine = Data(#"{"type":"assistant","timestamp":"2026-07-09T10:00:00Z","sessionId":"s1","uuid":"m1","message":{"id":"m1","model":"claude-test","usage":{"input_tokens":10,"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}"#.utf8)
+        claudeLine.append(0x0A)
+        try claudeLine.write(to: projects.appendingPathComponent("session.jsonl"))
+
+        let codexRoot = try makeTemporaryDirectory(named: ".codex")
+        let sessions = codexRoot.appendingPathComponent("sessions/2026/07/09", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+        var codexLine = Data(#"{"type":"event_msg","timestamp":"2026-07-09T10:01:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":5,"output_tokens":5,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":10},"last_token_usage":{"input_tokens":5,"output_tokens":5,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":10}}}}"#.utf8)
+        codexLine.append(0x0A)
+        try codexLine.write(to: sessions.appendingPathComponent("rollout.jsonl"))
+
+        let openCodeRoot = try makeTemporaryDirectory(named: "opencode")
+        let dbPath = openCodeRoot.appendingPathComponent("opencode.db")
+        try runSqliteCli(dbPath, sql: "CREATE TABLE session (id TEXT PRIMARY KEY, model TEXT NOT NULL, tokens_input INTEGER NOT NULL, tokens_output INTEGER NOT NULL, tokens_cache_read INTEGER NOT NULL, tokens_cache_write INTEGER NOT NULL, tokens_reasoning INTEGER NOT NULL, cost REAL NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL);")
+        try runSqliteCli(dbPath, sql: "INSERT INTO session (id, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, tokens_reasoning, cost, time_created, time_updated) VALUES ('ses_a', '{\"id\":\"glm-5.2\"}', 100, 20, 0, 0, 0, 0.0, 1783636290026, 1783636290026);")
+
+        let result = TranscriptScanner().scan(claudeRoot: claudeRoot, codexRoot: codexRoot, openCodeRoot: openCodeRoot)
+
+        let providerCounts = Dictionary(grouping: result.events.map(\.provider), by: { $0 }).mapValues(\.count)
+        XCTAssertEqual(providerCounts[.claudeCode], 1)
+        XCTAssertEqual(providerCounts[.codex], 1)
+        XCTAssertEqual(providerCounts[.openCode], 1)
+        XCTAssertEqual(result.sources.count, 3)
+        let readyProviders = result.sources.filter { $0.state == .ready }
+        XCTAssertEqual(readyProviders.count, 3)
+    }
+
+    private func runSqliteCli(_ dbPath: URL, sql: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = [dbPath.path, sql]
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0, "sqlite3 failed for SQL: \(sql)")
     }
 
     private func makeTemporaryDirectory(named name: String) throws -> URL {
