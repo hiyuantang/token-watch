@@ -1,0 +1,79 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+		A10000000000000000000001 /* TokenWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* TokenWatchApp.swift */; };
+		A10000000000000000000002 /* UsageModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* UsageModels.swift */; };
+		A10000000000000000000003 /* FolderAccessStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* FolderAccessStore.swift */; };
+		A10000000000000000000004 /* TranscriptScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* TranscriptScanner.swift */; };
+		A10000000000000000000005 /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* UsageStore.swift */; };
+		A10000000000000000000006 /* MenuBarPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* MenuBarPopover.swift */; };
+		A10000000000000000000007 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* DashboardView.swift */; };
+		A10000000000000000000008 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ModelsView.swift */; };
+		A10000000000000000000009 /* SourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* SourcesView.swift */; };
+		A10000000000000000000010 /* MetricCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* MetricCard.swift */; };
+		A10000000000000000000011 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SettingsView.swift */; };
+		A10000000000000000000012 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* Formatting.swift */; };
+		A10000000000000000000013 /* UsageScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* UsageScannerTests.swift */; };
+		A10000000000000000000014 /* UsageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* UsageSnapshotTests.swift */; };
+
+		A20000000000000000000001 /* TokenWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenWatchApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* FolderAccessStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderAccessStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* TranscriptScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptScanner.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* MenuBarPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopover.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* SourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesView.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* MetricCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCard.swift; sourceTree = "<group>"; };
+		A20000000000000000000011 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatting.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* UsageScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageScannerTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000014 /* UsageSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageSnapshotTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* TokenWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TokenWatch.entitlements; sourceTree = "<group>"; };
+		A20000000000000000000016 /* TokenWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TokenWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000017 /* TokenWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TokenWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+
+		A30000000000000000000001 = {isa = PBXGroup; children = (A30000000000000000000002 /* TokenWatch */, A30000000000000000000003 /* TokenWatchTests */, A30000000000000000000004 /* Products */); sourceTree = "<group>"; };
+		A30000000000000000000002 /* TokenWatch */ = {isa = PBXGroup; children = (A30000000000000000000005 /* App */, A30000000000000000000006 /* Models */, A30000000000000000000007 /* Services */, A30000000000000000000008 /* Stores */, A30000000000000000000009 /* Views */, A30000000000000000000010 /* Support */, A20000000000000000000015 /* TokenWatch.entitlements */); path = TokenWatch; sourceTree = "<group>"; };
+		A30000000000000000000003 /* TokenWatchTests */ = {isa = PBXGroup; children = (A20000000000000000000013 /* UsageScannerTests.swift */, A20000000000000000000014 /* UsageSnapshotTests.swift */); path = TokenWatchTests; sourceTree = "<group>"; };
+		A30000000000000000000004 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000016 /* TokenWatch.app */, A20000000000000000000017 /* TokenWatchTests.xctest */); name = Products; sourceTree = "<group>"; };
+		A30000000000000000000005 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* TokenWatchApp.swift */); path = App; sourceTree = "<group>"; };
+		A30000000000000000000006 /* Models */ = {isa = PBXGroup; children = (A20000000000000000000002 /* UsageModels.swift */); path = Models; sourceTree = "<group>"; };
+		A30000000000000000000007 /* Services */ = {isa = PBXGroup; children = (A20000000000000000000003 /* FolderAccessStore.swift */, A20000000000000000000004 /* TranscriptScanner.swift */); path = Services; sourceTree = "<group>"; };
+		A30000000000000000000008 /* Stores */ = {isa = PBXGroup; children = (A20000000000000000000005 /* UsageStore.swift */); path = Stores; sourceTree = "<group>"; };
+		A30000000000000000000009 /* Views */ = {isa = PBXGroup; children = (A20000000000000000000006 /* MenuBarPopover.swift */, A20000000000000000000007 /* DashboardView.swift */, A20000000000000000000008 /* ModelsView.swift */, A20000000000000000000009 /* SourcesView.swift */, A20000000000000000000010 /* MetricCard.swift */, A20000000000000000000011 /* SettingsView.swift */); path = Views; sourceTree = "<group>"; };
+		A30000000000000000000010 /* Support */ = {isa = PBXGroup; children = (A20000000000000000000012 /* Formatting.swift */); path = Support; sourceTree = "<group>"; };
+
+		A40000000000000000000001 /* TokenWatch */ = {isa = PBXNativeTarget; buildConfigurationList = A50000000000000000000002; buildPhases = (A60000000000000000000001 /* Sources */, A60000000000000000000002 /* Frameworks */, A60000000000000000000003 /* Resources */); buildRules = (); dependencies = (); name = TokenWatch; productName = TokenWatch; productReference = A20000000000000000000016 /* TokenWatch.app */; productType = "com.apple.product-type.application"; };
+		A40000000000000000000002 /* TokenWatchTests */ = {isa = PBXNativeTarget; buildConfigurationList = A50000000000000000000003; buildPhases = (A60000000000000000000004 /* Sources */, A60000000000000000000005 /* Frameworks */, A60000000000000000000006 /* Resources */); buildRules = (); dependencies = (A70000000000000000000001 /* PBXTargetDependency */); name = TokenWatchTests; productName = TokenWatchTests; productReference = A20000000000000000000017 /* TokenWatchTests.xctest */; productType = "com.apple.product-type.bundle.unit-test"; };
+
+		A50000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000001 /* Debug */, A80000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A50000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000003 /* Debug */, A80000000000000000000004 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A50000000000000000000003 = {isa = XCConfigurationList; buildConfigurations = (A80000000000000000000005 /* Debug */, A80000000000000000000006 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+
+		A60000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A10000000000000000000010, A10000000000000000000011, A10000000000000000000012); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000013, A10000000000000000000014); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000005 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+
+		A70000000000000000000001 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = A40000000000000000000001 /* TokenWatch */; targetProxy = A70000000000000000000002 /* PBXContainerItemProxy */; };
+		A70000000000000000000002 /* PBXContainerItemProxy */ = {isa = PBXContainerItemProxy; containerPortal = A90000000000000000000001 /* Project object */; proxyType = 1; remoteGlobalIDString = A40000000000000000000001; remoteInfo = TokenWatch; };
+
+		A80000000000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; }; name = Debug; };
+		A80000000000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; }; name = Release; };
+		A80000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_ENTITLEMENTS = TokenWatch/TokenWatch.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; ENABLE_TESTABILITY = YES; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "Token Watch"; INFOPLIST_KEY_LSUIElement = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.local.tokenwatch; PRODUCT_NAME = TokenWatch; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Debug; };
+		A80000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_ENTITLEMENTS = TokenWatch/TokenWatch.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_KEY_CFBundleDisplayName = "Token Watch"; INFOPLIST_KEY_LSUIElement = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 1.0; PRODUCT_BUNDLE_IDENTIFIER = com.local.tokenwatch; PRODUCT_NAME = TokenWatch; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Release; };
+		A80000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; MACOSX_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.local.tokenwatch.tests; PRODUCT_MODULE_NAME = TokenWatchTests; PRODUCT_NAME = TokenWatchTests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TokenWatch.app/Contents/MacOS/TokenWatch"; }; name = Debug; };
+		A80000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { BUNDLE_LOADER = "$(TEST_HOST)"; MACOSX_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.local.tokenwatch.tests; PRODUCT_MODULE_NAME = TokenWatchTests; PRODUCT_NAME = TokenWatchTests; SWIFT_VERSION = 6.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TokenWatch.app/Contents/MacOS/TokenWatch"; }; name = Release; };
+
+		A90000000000000000000001 /* Project object */ = {isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = { A40000000000000000000001 = { CreatedOnToolsVersion = 26.0; }; A40000000000000000000002 = { CreatedOnToolsVersion = 26.0; TestTargetID = A40000000000000000000001; }; }; }; buildConfigurationList = A50000000000000000000001; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A30000000000000000000001; productRefGroup = A30000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (A40000000000000000000001, A40000000000000000000002); };
+	};
+	rootObject = A90000000000000000000001 /* Project object */;
+}
