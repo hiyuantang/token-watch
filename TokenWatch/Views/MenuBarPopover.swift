@@ -26,9 +26,6 @@ struct MenuBarPopover: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Token Watch")
                         .font(.headline)
-                    Text("Local transcript metadata only")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if store.isRefreshing {
@@ -51,8 +48,10 @@ struct MenuBarPopover: View {
                 Text("Recorded tokens")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(TokenFormatting.compact(snapshot.usage.recordedTotal))
+                Text(TokenFormatting.full(snapshot.usage.recordedTotal))
                     .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .contentTransition(.numericText())
                 Text("Observed in local \(range.shortTitle) transcript records")
                     .font(.caption)
