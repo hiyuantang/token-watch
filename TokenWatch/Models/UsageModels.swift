@@ -32,10 +32,14 @@ enum UsageRange: Int, CaseIterable, Identifiable, Sendable {
     case day = 1
     case week = 7
     case month = 30
+    case total = 0
 
     var id: Int { rawValue }
-    var shortTitle: String { "\(rawValue)D" }
-    var accessibilityTitle: String { "Last \(rawValue) calendar day\(rawValue == 1 ? "" : "s")" }
+    var dayCount: Int? { self == .total ? nil : rawValue }
+    var shortTitle: String { self == .total ? "Total" : "\(rawValue)D" }
+    var accessibilityTitle: String {
+        self == .total ? "All recorded activity" : "Last \(rawValue) calendar day\(rawValue == 1 ? "" : "s")"
+    }
 }
 
 struct TokenUsage: Hashable, Sendable {

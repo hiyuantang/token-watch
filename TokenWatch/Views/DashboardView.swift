@@ -55,7 +55,7 @@ struct DashboardView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 170)
+                .frame(width: 210)
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -87,7 +87,9 @@ private struct OverviewView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Recorded tokens")
                         .font(.headline)
-                    Text("Local transcript metadata for the last \(snapshot.range.rawValue) calendar day\(snapshot.range == .day ? "" : "s").")
+                    Text(snapshot.range == .total
+                         ? "All recorded activity."
+                         : "Local transcript metadata for the last \(snapshot.range.rawValue) calendar day\(snapshot.range == .day ? "" : "s").")
                         .foregroundStyle(.secondary)
                 }
 
@@ -135,7 +137,10 @@ private struct OverviewView: View {
                     } else {
                         Chart(snapshot.timeline) { bucket in
                             BarMark(
-                                x: .value(snapshot.range == .day ? "Hour" : "Day", bucket.date),
+                                x: .value(
+                                    snapshot.range == .day ? "Hour" : (snapshot.range == .total ? "Month" : "Day"),
+                                    bucket.date
+                                ),
                                 y: .value("Recorded tokens", bucket.recordedTotal)
                             )
                             .foregroundStyle(by: .value("Provider", bucket.provider.displayName))

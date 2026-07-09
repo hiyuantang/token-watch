@@ -3,6 +3,8 @@ import SwiftUI
 struct ModelsView: View {
     let snapshot: UsageSnapshot
 
+    private var totalRecorded: Int { snapshot.usage.recordedTotal }
+
     var body: some View {
         Group {
             if snapshot.models.isEmpty {
@@ -13,6 +15,9 @@ struct ModelsView: View {
                 )
             } else {
                 List(snapshot.models) { model in
+                    let share = totalRecorded == 0
+                        ? 0
+                        : Double(model.usage.recordedTotal) / Double(totalRecorded)
                     HStack(spacing: 12) {
                         Image(systemName: model.provider == .claudeCode ? "sparkles" : "terminal")
                             .foregroundStyle(.secondary)
@@ -26,8 +31,14 @@ struct ModelsView: View {
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 3) {
-                            Text(TokenFormatting.compact(model.usage.recordedTotal))
-                                .monospacedDigit()
+                            HStack(spacing: 6) {
+                                Text(TokenFormatting.compact(model.usage.recordedTotal))
+                                    .monospacedDigit()
+                                Text(TokenFormatting.percentage(share))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
                             Text("In \(TokenFormatting.compact(model.usage.input)) · Out \(TokenFormatting.compact(model.usage.output))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)

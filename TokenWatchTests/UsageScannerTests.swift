@@ -54,6 +54,26 @@ final class UsageScannerTests: XCTestCase {
         XCTAssertTrue(result.events.isEmpty)
     }
 
+    func testClaudeSyntheticModelRecordsAreSkipped() throws {
+        let root = try makeTemporaryDirectory(named: ".claude")
+        let projects = root.appendingPathComponent("projects/session", isDirectory: true)
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+
+        let transcript = """
+        {"type":"assistant","timestamp":"2026-07-09T10:00:00Z","sessionId":"session-1","uuid":"message-synthetic","message":{"id":"message-synthetic","model":"<synthetic>","usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+        {"type":"assistant","timestamp":"2026-07-09T10:01:00Z","sessionId":"session-1","uuid":"message-real","message":{"id":"message-real","model":"claude-test","usage":{"input_tokens":10,"output_tokens":2,"cache_read_input_tokens":3,"cache_creation_input_tokens":4}}}
+        """
+        try transcript.data(using: .utf8)!.write(to: projects.appendingPathComponent("session.jsonl"))
+
+        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil)
+
+        XCTAssertEqual(result.events.count, 1)
+        XCTAssertEqual(result.events.first?.model, "claude-test")
+        XCTAssertEqual(result.events.first?.usage.recordedTotal, 19)
+        let claude = try XCTUnwrap(result.sources.first { $0.provider == .claudeCode })
+        XCTAssertEqual(claude.malformedLines, 0)
+    }
+
     private func makeTemporaryDirectory(named name: String) throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("TokenWatchTests-\(UUID().uuidString)/\(name)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

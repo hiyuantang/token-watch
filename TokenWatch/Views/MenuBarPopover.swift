@@ -79,11 +79,40 @@ struct MenuBarPopover: View {
                 PopoverStat(title: "Cache read", value: TokenFormatting.percentage(snapshot.cacheReadShare))
             }
 
-            if let topModel = snapshot.models.first {
-                Label("Top model: \(topModel.model)", systemImage: "cpu")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Models")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if snapshot.models.isEmpty {
+                    Text("No model metadata yet")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    let totalRecorded = snapshot.usage.recordedTotal
+                    ForEach(snapshot.models.prefix(5)) { model in
+                        let share = totalRecorded == 0
+                            ? 0
+                            : Double(model.usage.recordedTotal) / Double(totalRecorded)
+                        HStack(spacing: 8) {
+                            Image(systemName: model.provider == .claudeCode ? "sparkles" : "terminal")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 14)
+                            Text(model.model)
+                                .font(.caption)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Text(TokenFormatting.compact(model.usage.recordedTotal))
+                                .font(.caption)
+                                .monospacedDigit()
+                            Text(TokenFormatting.percentage(share))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                    }
+                }
             }
 
             if let message = store.lastMessage {
@@ -114,6 +143,14 @@ struct MenuBarPopover: View {
                     Image(systemName: "gearshape")
                 }
                 .help("Open Token Watch settings")
+
+                Button {
+                    NSApp.terminate(nil)
+                } label: {
+                    Image(systemName: "power")
+                }
+                .labelStyle(.iconOnly)
+                .help("Quit Token Watch")
             }
         }
         .padding(18)

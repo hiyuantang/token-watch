@@ -70,6 +70,9 @@ struct TranscriptScanner: Sendable {
                 return
             }
             guard record.type == "assistant", let message = record.message, let usage = message.usage else { return }
+            // Claude Code logs synthetic/system-generated assistant events with a "<synthetic>" model
+            // and all-zero usage. They carry no real token usage, so skip them to avoid noise.
+            if message.model == "<synthetic>" { return }
             guard let timestamp = parseTimestamp(record.timestamp) else {
                 source.malformedLines += 1
                 return

@@ -47,4 +47,38 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.usage.recordedTotal, 0)
         XCTAssertTrue(snapshot.models.isEmpty)
     }
+
+    func testTotalRangeIncludesAllEventsAndUsesMonthlyBuckets() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let recent = UsageEvent(
+            id: UUID(),
+            provider: .claudeCode,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-09T09:00:00Z")!,
+            model: "claude-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 10, output: 5, cacheRead: 10, cacheWrite: 0)
+        )
+        let old = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2025-11-08T23:00:00Z")!,
+            model: "gpt-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 30, output: 10, recordedTotal: 40)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(events: [recent, old], range: .total, sources: sources, now: now)
+
+        XCTAssertEqual(snapshot.usage.recordedTotal, 65)
+        XCTAssertEqual(snapshot.models.count, 2)
+        XCTAssertEqual(snapshot.sessionCount, 2)
+        XCTAssertFalse(snapshot.timeline.isEmpty)
+        for bucket in snapshot.timeline {
+            let day = calendar.dateInterval(of: .day, for: bucket.date)?.start
+            XCTAssertEqual(bucket.date, calendar.dateInterval(of: .month, for: bucket.date)?.start)
+            XCTAssertNotNil(day)
+        }
+    }
 }

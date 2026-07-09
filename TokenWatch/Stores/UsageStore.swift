@@ -136,13 +136,17 @@ enum UsageAggregator {
     }
 
     private static func rangeStart(_ range: UsageRange, now: Date, calendar: Calendar) -> Date {
+        guard let dayCount = range.dayCount else { return .distantPast }
         let today = calendar.startOfDay(for: now)
-        return calendar.date(byAdding: .day, value: -(range.rawValue - 1), to: today) ?? today
+        return calendar.date(byAdding: .day, value: -(dayCount - 1), to: today) ?? today
     }
 
     private static func bucketDate(for date: Date, range: UsageRange, calendar: Calendar) -> Date {
         if range == .day {
             return calendar.dateInterval(of: .hour, for: date)?.start ?? date
+        }
+        if range == .total {
+            return calendar.dateInterval(of: .month, for: date)?.start ?? date
         }
         return calendar.startOfDay(for: date)
     }
@@ -163,6 +167,9 @@ enum UsageAggregator {
         guard let peak = timeline.max(by: { $0.recordedTotal < $1.recordedTotal }) else { return "No activity yet" }
         if range == .day {
             return peak.date.formatted(date: .omitted, time: .shortened)
+        }
+        if range == .total {
+            return peak.date.formatted(.dateTime.year().month(.abbreviated))
         }
         return peak.date.formatted(.dateTime.month(.abbreviated).day())
     }
