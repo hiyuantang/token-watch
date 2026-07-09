@@ -3,6 +3,7 @@ import Foundation
 enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case claudeCode
     case codex
+    case openCode
 
     var id: String { rawValue }
 
@@ -10,6 +11,7 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         switch self {
         case .claudeCode: "Claude Code"
         case .codex: "Codex"
+        case .openCode: "OpenCode"
         }
     }
 
@@ -17,6 +19,7 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         switch self {
         case .claudeCode: ".claude"
         case .codex: ".codex"
+        case .openCode: "opencode"
         }
     }
 
@@ -24,6 +27,7 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         switch self {
         case .claudeCode: "projects"
         case .codex: "sessions"
+        case .openCode: "."
         }
     }
 }
