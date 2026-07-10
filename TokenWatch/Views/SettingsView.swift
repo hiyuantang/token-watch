@@ -5,29 +5,29 @@ struct TokenWatchSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Local data access") {
-                ForEach(UsageProvider.allCases) { provider in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(provider.displayName)
-                            Text("Select \(provider.selectedFolderName) containing \(provider.expectedRelativeDirectory)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Choose Folder") { store.chooseFolder(for: provider) }
+            Section("Refresh") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Automatic refresh")
+                        Text("Token Watch auto-discovers ~/.claude, ~/.codex, and ~/.local/share/opencode on launch and updates automatically when local transcript files change. Use Sync Now if anything looks out of date.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    Spacer()
+                    Button("Sync Now") { store.manualSync() }
+                        .disabled(store.isRefreshing)
                 }
             }
 
-            Section("Refresh") {
-                Text("Token Watch reads selected local folders on launch, when opened, on manual refresh, and every 60 seconds while running.")
-                    .foregroundStyle(.secondary)
+            Section("Privacy boundary") {
+                Label("No network entitlement or network features", systemImage: "network.slash")
+                Label("No prompts, responses, source files, paths, or session IDs are shown or persisted", systemImage: "lock")
+                Label("No cost, quota, account, credential, or rate-limit tracking", systemImage: "nosign")
             }
 
             Section("Privacy and status") {
-                Text("This app has no network entitlement and makes no provider requests. It keeps only folder bookmarks and interface preferences; observed token metadata is rebuilt in memory from local files.")
-                Text("Token Watch is not affiliated with or endorsed by Anthropic or OpenAI. Recorded tokens are not an official provider quota, invoice, or account balance.")
+                Text("This app has no network entitlement and makes no provider requests. It keeps only interface preferences; observed token metadata is rebuilt in memory from local files.")
+                Text("Token Watch is not affiliated with or endorsed by Anthropic, OpenAI, or OpenCode. Recorded tokens are not an official provider quota, invoice, or account balance.")
             }
         }
         .formStyle(.grouped)

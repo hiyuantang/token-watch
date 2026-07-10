@@ -15,14 +15,6 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         }
     }
 
-    var selectedFolderName: String {
-        switch self {
-        case .claudeCode: ".claude"
-        case .codex: ".codex"
-        case .openCode: "opencode"
-        }
-    }
-
     var expectedRelativeDirectory: String {
         switch self {
         case .claudeCode: "projects"

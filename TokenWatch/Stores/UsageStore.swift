@@ -1,5 +1,3 @@
-import AppKit
-import Combine
 import Foundation
 
 @MainActor
@@ -9,19 +7,20 @@ final class UsageStore: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var lastMessage: String?
 
-    private var refreshTimer: Task<Void, Never>?
+    private let watcher = TranscriptWatcher()
 
     deinit {
-        refreshTimer?.cancel()
+        MainActor.assumeIsolated {
+            watcher.stopAll()
+        }
     }
 
     func start() {
-        guard refreshTimer == nil else { return }
+        watcher.onChange = { [weak self] _ in self?.refresh() }
         refresh()
-        refreshTimer = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                self?.refresh()
+        for provider in UsageProvider.allCases {
+            if let url = ProviderPaths.root(for: provider) {
+                watcher.start(for: provider, directory: url)
             }
         }
     }
@@ -31,22 +30,20 @@ final class UsageStore: ObservableObject {
         isRefreshing = true
         lastMessage = nil
 
-        let selectedFolders = Dictionary(uniqueKeysWithValues: UsageProvider.allCases.compactMap { provider in
-            FolderAccessStore.url(for: provider).map { (provider, $0) }
-        })
-        let scopedFolders = selectedFolders.values.filter { $0.startAccessingSecurityScopedResource() }
+        let claudeRoot = ProviderPaths.claudeRoot()
+        let codexRoot = ProviderPaths.codexRoot()
+        let openCodeRoot = ProviderPaths.openCodeRoot()
         let scanner = TranscriptScanner()
 
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
                 scanner.scan(
-                    claudeRoot: selectedFolders[.claudeCode],
-                    codexRoot: selectedFolders[.codex],
-                    openCodeRoot: selectedFolders[.openCode]
+                    claudeRoot: claudeRoot,
+                    codexRoot: codexRoot,
+                    openCodeRoot: openCodeRoot
                 )
             }.value
 
-            scopedFolders.forEach { $0.stopAccessingSecurityScopedResource() }
             guard let self else { return }
             self.events = result.events
             self.sources = result.sources
@@ -54,23 +51,8 @@ final class UsageStore: ObservableObject {
         }
     }
 
-    func chooseFolder(for provider: UsageProvider) {
-        switch FolderAccessStore.chooseFolder(for: provider) {
-        case .success:
-            lastMessage = "\(provider.displayName) access updated."
-            refresh()
-        case .failure(let error):
-            lastMessage = error.errorDescription
-        }
-    }
-
-    func revokeFolder(for provider: UsageProvider) {
-        FolderAccessStore.remove(provider)
-        events.removeAll { $0.provider == provider }
-        sources = sources.map { source in
-            source.provider == provider ? .unconfigured(provider) : source
-        }
-        lastMessage = "\(provider.displayName) access removed."
+    func manualSync() {
+        refresh()
     }
 
     func snapshot(for range: UsageRange, now: Date = Date()) -> UsageSnapshot {
