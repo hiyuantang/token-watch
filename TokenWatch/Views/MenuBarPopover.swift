@@ -13,6 +13,53 @@ struct MenuBarLabel: View {
     }
 }
 
+/// Renders a formatted integer as per-digit characters so each digit can flip
+/// individually with a staggered (left-to-right) wave when the value changes.
+/// Unchanged digits do not animate. The wave is produced by indexing only the
+/// digit positions that changed and offsetting their animation by position.
+private struct WaveFlipNumber: View {
+    let value: Int
+    let formatter: NumberFormatter
+
+    @State private var previousDigits: [Character] = []
+
+    private var currentDigits: [Character] {
+        Array(formatter.string(for: value) ?? "")
+    }
+
+    private static let digitDelay: CGFloat = 0.07
+
+    var body: some View {
+        let digits = currentDigits
+        let prev = previousDigits
+        // Index changed positions relative to the start of the whole string so
+        // the wave always reads left-to-right regardless of which digits moved.
+        let changedIndexes: Set<Int> = {
+            guard !prev.isEmpty, prev.count == digits.count else { return [] }
+            return Set(zip(digits, prev).enumerated().compactMap { idx, pair in
+                pair.0 != pair.1 ? idx : nil
+            })
+        }()
+
+        HStack(spacing: 0) {
+            ForEach(Array(digits.enumerated()), id: \.offset) { idx, char in
+                Text(String(char))
+                    .contentTransition(.numericText())
+                    .animation(
+                        changedIndexes.contains(idx)
+                            ? .easeInOut(duration: 0.42)
+                                .delay(Double(idx) * Self.digitDelay)
+                            : nil,
+                        value: value
+                    )
+                    .id(char)
+            }
+        }
+        .onAppear { previousDigits = digits }
+        .onChange(of: value) { _, _ in previousDigits = digits }
+    }
+}
+
 struct MenuBarPopover: View {
     @ObservedObject var store: UsageStore
     @Environment(\.openWindow) private var openWindow
@@ -21,11 +68,11 @@ struct MenuBarPopover: View {
     private var snapshot: UsageSnapshot { store.snapshot(for: range) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Token Watch")
-                        .font(.headline)
+                        .font(.title3.weight(.semibold))
                 }
                 Spacer()
                 if store.isRefreshing {
@@ -44,21 +91,21 @@ struct MenuBarPopover: View {
             .labelsHidden()
             .accessibilityLabel("Date range")
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Recorded tokens")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text(TokenFormatting.full(snapshot.usage.recordedTotal))
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                WaveFlipNumber(value: snapshot.usage.recordedTotal, formatter: Self.fullFormatter)
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
-                    .contentTransition(.numericText())
+                    .monospacedDigit()
                 Text("Observed in local \(range.shortTitle) transcript records")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 ForEach(snapshot.providers) { provider in
                     HStack {
                         Text(provider.provider.displayName)
@@ -66,7 +113,7 @@ struct MenuBarPopover: View {
                         Text(TokenFormatting.compact(provider.usage.recordedTotal))
                             .monospacedDigit()
                     }
-                    .font(.subheadline)
+                    .font(.callout)
                 }
             }
 
@@ -78,13 +125,13 @@ struct MenuBarPopover: View {
                 PopoverStat(title: "Cache read", value: TokenFormatting.percentage(snapshot.cacheReadShare))
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Models")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 if snapshot.models.isEmpty {
                     Text("No model metadata yet")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     let totalRecorded = snapshot.usage.recordedTotal
@@ -95,20 +142,20 @@ struct MenuBarPopover: View {
                         HStack(spacing: 8) {
                             Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
                                 .foregroundStyle(.secondary)
-                                .frame(width: 14)
+                                .frame(width: 16)
                             Text(model.model)
-                                .font(.caption)
+                                .font(.callout)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer()
                             Text(TokenFormatting.compact(model.usage.recordedTotal))
-                                .font(.caption)
+                                .font(.callout)
                                 .monospacedDigit()
                             Text(TokenFormatting.percentage(share))
-                                .font(.caption2)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
-                                .frame(width: 36, alignment: .trailing)
+                                .frame(width: 40, alignment: .trailing)
                         }
                     }
                 }
@@ -146,9 +193,15 @@ struct MenuBarPopover: View {
                 .help("Quit Token Watch")
             }
         }
-        .padding(18)
-        .frame(width: 360)
+        .padding(20)
+        .frame(width: 400)
     }
+
+    private static let fullFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        return f
+    }()
 }
 
 private struct PopoverStat: View {
@@ -158,10 +211,10 @@ private struct PopoverStat: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.subheadline.weight(.semibold))
+                .font(.body.weight(.semibold))
                 .monospacedDigit()
             Text(title)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
