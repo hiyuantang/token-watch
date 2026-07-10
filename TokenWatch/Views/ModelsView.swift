@@ -23,7 +23,7 @@ struct ModelsView: View {
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(model.model)
+                            Text(Pricing.displayName(for: model.model))
                                 .font(.body.weight(.medium))
                             Text(model.provider.displayName)
                                 .font(.caption)

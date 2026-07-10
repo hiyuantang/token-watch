@@ -156,7 +156,7 @@ struct MenuBarPopover: View {
                             Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 16)
-                            Text(model.model)
+                            Text(Pricing.displayName(for: model.model))
                                 .font(.callout)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
