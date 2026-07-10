@@ -148,10 +148,6 @@ struct MenuBarPopover: View {
         }
         .padding(18)
         .frame(width: 360)
-        .task {
-            store.start()
-            store.refresh()
-        }
     }
 }
 
