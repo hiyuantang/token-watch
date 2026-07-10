@@ -115,8 +115,8 @@ private struct OverviewView: View {
                         )
                         MetricCard(
                             title: "Cache read share",
-                            value: TokenFormatting.percentage(snapshot.cacheReadShare?.value ?? 0),
-                            detail: "Cached input ÷ observed input",
+                            value: TokenFormatting.cacheShareText(snapshot.cacheReadShare),
+                            detail: "Cached ÷ input for cache-reporting providers",
                             symbol: "arrow.trianglehead.2.clockwise",
                             tint: .mint
                         )

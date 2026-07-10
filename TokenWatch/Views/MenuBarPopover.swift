@@ -138,7 +138,7 @@ struct MenuBarPopover: View {
             HStack(spacing: 18) {
                 PopoverStat(title: "Input", value: TokenFormatting.compact(snapshot.usage.input))
                 PopoverStat(title: "Output", value: TokenFormatting.compact(snapshot.usage.output))
-                PopoverStat(title: "Cache read", value: TokenFormatting.percentage(snapshot.cacheReadShare?.value ?? 0))
+                PopoverStat(title: "Cache read", value: TokenFormatting.cacheShareText(snapshot.cacheReadShare))
             }
 
             VStack(alignment: .leading, spacing: 8) {

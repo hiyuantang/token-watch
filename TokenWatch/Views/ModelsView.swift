@@ -46,7 +46,7 @@ struct ModelsView: View {
                                         .foregroundStyle(.secondary)
                                         .monospacedDigit()
                                 } else {
-                                    Text("unpriced")
+                                    Text("-")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
