@@ -4,7 +4,6 @@ import SwiftUI
 private enum DashboardSection: String, CaseIterable, Identifiable {
     case overview
     case models
-    case sources
 
     var id: String { rawValue }
 
@@ -14,7 +13,6 @@ private enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "rectangle.3.group"
         case .models: "cpu"
-        case .sources: "folder"
         }
     }
 }
@@ -42,8 +40,6 @@ struct DashboardView: View {
                 OverviewView(snapshot: store.snapshot(for: selectedRange))
             case .models:
                 ModelsView(snapshot: store.snapshot(for: selectedRange))
-            case .sources:
-                SourcesView(store: store)
             }
         }
         .toolbar {
@@ -131,7 +127,7 @@ private struct OverviewView: View {
                         ContentUnavailableView(
                             "No recorded token activity",
                             systemImage: "chart.bar.xaxis",
-                            description: Text("Choose your Claude Code or Codex folder in Sources to begin.")
+                            description: Text("Open Claude Code, Codex, or OpenCode to begin recording token metadata.")
                         )
                         .frame(maxWidth: .infinity, minHeight: 220)
                     } else {
@@ -155,7 +151,7 @@ private struct OverviewView: View {
                     VStack(spacing: 12) {
                         ForEach(snapshot.providers) { provider in
                             HStack {
-                                Label(provider.provider.displayName, systemImage: provider.provider == .claudeCode ? "sparkles" : "terminal")
+                                Label(provider.provider.displayName, systemImage: providerSymbol(provider.provider))
                                 Spacer()
                                 Text(TokenFormatting.compact(provider.usage.recordedTotal))
                                     .monospacedDigit()
@@ -177,5 +173,13 @@ private struct OverviewView: View {
             .padding(24)
         }
         .navigationTitle("Overview")
+    }
+}
+
+private func providerSymbol(_ provider: UsageProvider) -> String {
+    switch provider {
+    case .claudeCode: "sparkles"
+    case .codex: "terminal"
+    case .openCode: "curlybraces"
     }
 }
