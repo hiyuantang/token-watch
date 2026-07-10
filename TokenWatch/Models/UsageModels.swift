@@ -94,6 +94,14 @@ struct TokenUsage: Hashable, Sendable {
     }
 }
 
+/// A cache-read share value with a flag indicating whether it was computed from
+/// the selected range or stepped back from a wider range (because the selected
+/// range had no cache-reporting events). UI surfaces `inferred` via a `~` prefix.
+struct CacheShare: Sendable, Hashable {
+    let value: Double
+    let inferred: Bool
+}
+
 /// Contains only typed usage metadata. The opaque session token is generated in memory and is not a provider session ID.
 struct UsageEvent: Hashable, Sendable, Identifiable {
     let id: UUID
@@ -102,6 +110,10 @@ struct UsageEvent: Hashable, Sendable, Identifiable {
     let model: String
     let sessionToken: UUID
     let usage: TokenUsage
+    /// OpenCode model-provider routing tag (e.g. "ollama-cloud", "anthropic",
+    /// "minimax"). `nil` for Claude Code and Codex events. Used only to gate
+    /// which events count toward the cache-read-share denominator.
+    var openCodeProviderID: String? = nil
 }
 
 enum SourceState: String, Sendable {
@@ -177,7 +189,7 @@ struct UsageSnapshot: Sendable {
     let models: [ModelSummary]
     let timeline: [TimelineBucket]
     let sessionCount: Int
-    let cacheReadShare: Double
+    let cacheReadShare: CacheShare?
     let currentStreak: Int
     let peakActivityLabel: String
     let sources: [SourceHealth]
@@ -191,7 +203,7 @@ struct UsageSnapshot: Sendable {
             models: [],
             timeline: [],
             sessionCount: 0,
-            cacheReadShare: 0,
+            cacheReadShare: nil,
             currentStreak: 0,
             peakActivityLabel: "No activity yet",
             sources: sources,

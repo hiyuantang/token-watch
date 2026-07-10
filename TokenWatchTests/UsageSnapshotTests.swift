@@ -3,7 +3,7 @@ import XCTest
 @testable import TokenWatch
 
 final class UsageSnapshotTests: XCTestCase {
-    func testDayRangeExcludesPriorCalendarDayAndCalculatesCacheShare() {
+    func testDayRangeExcludesPriorCalendarDayAndCalculatesCacheShare() throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
         let session = UUID()
@@ -30,7 +30,9 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.usage.recordedTotal, 25)
         XCTAssertEqual(snapshot.sessionCount, 1)
         XCTAssertEqual(snapshot.models.map(\.model), ["claude-test"])
-        XCTAssertEqual(snapshot.cacheReadShare, 0.5, accuracy: 0.0001)
+        let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
+        XCTAssertEqual(cacheShare.value, 0.5, accuracy: 0.0001)
+        XCTAssertFalse(cacheShare.inferred)
         XCTAssertEqual(snapshot.currentStreak, 1)
         XCTAssertEqual(calendar.startOfDay(for: snapshot.timeline[0].date), calendar.startOfDay(for: today.timestamp))
     }

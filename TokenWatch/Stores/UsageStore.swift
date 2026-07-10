@@ -159,7 +159,9 @@ enum UsageAggregator {
         }
 
         let cacheDenominator = usage.input + usage.cacheRead
-        let cacheReadShare = cacheDenominator == 0 ? 0 : Double(usage.cacheRead) / Double(cacheDenominator)
+        let cacheReadShare: CacheShare? = cacheDenominator == 0
+            ? nil
+            : .init(value: Double(usage.cacheRead) / Double(cacheDenominator), inferred: false)
         let models = modelUsage.map { key, value in
             ModelSummary(
                 provider: key.provider,
