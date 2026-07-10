@@ -70,7 +70,6 @@ struct DashboardView: View {
                 }
             }
         }
-        .task { store.start() }
     }
 }
 
