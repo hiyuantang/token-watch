@@ -48,10 +48,8 @@ struct OpenCodeScanner: Sendable {
         }
         let rows = (try? JSONDecoder().decode([OpenCodeSessionRow].self, from: data)) ?? []
         for row in rows {
-            let model = row.model.flatMap(decodeModelId) ?? {
-                source.malformedLines += 1
-                return "Unknown model"
-            }()
+            let model = row.model.flatMap(decodeModel)
+            if model == nil { source.malformedLines += 1 }
             let sessionToken = sessionTokens[row.id] ?? UUID()
             sessionTokens[row.id] = sessionToken
             events.append(
@@ -59,7 +57,7 @@ struct OpenCodeScanner: Sendable {
                     id: UUID(),
                     provider: .openCode,
                     timestamp: Date(timeIntervalSince1970: TimeInterval(row.timeUpdated) / 1000),
-                    model: model,
+                    model: model?.id ?? "Unknown model",
                     sessionToken: sessionToken,
                     usage: TokenUsage(
                         input: row.tokensInput,
@@ -67,19 +65,25 @@ struct OpenCodeScanner: Sendable {
                         cacheRead: row.tokensCacheRead,
                         cacheWrite: row.tokensCacheWrite,
                         reasoningOutput: row.tokensReasoning
-                    )
+                    ),
+                    openCodeProviderID: model?.providerID
                 )
             )
             source.usageRecords += 1
         }
     }
 
-    private func decodeModelId(_ json: String) -> String? {
+    private struct DecodedModel: Sendable {
+        let id: String
+        let providerID: String?
+    }
+
+    private func decodeModel(_ json: String) -> DecodedModel? {
         guard let data = json.data(using: .utf8),
               let parsed = try? JSONDecoder().decode(OpenCodeModel.self, from: data),
               let id = parsed.id, !id.isEmpty
         else { return nil }
-        return id
+        return DecodedModel(id: id, providerID: parsed.providerID)
     }
 
     private func runSqliteJson(at url: URL) throws -> String {
@@ -167,4 +171,5 @@ private struct OpenCodeSessionRow: Decodable {
 
 private struct OpenCodeModel: Decodable {
     let id: String?
+    let providerID: String?
 }

@@ -121,6 +121,36 @@ final class OpenCodeScannerTests: XCTestCase {
         XCTAssertEqual(health.malformedLines, 1)
     }
 
+    func testModelJsonProviderIDIsPlumbedIntoEvent() throws {
+        let root = try makeTemporaryDirectory()
+        try createOpencodeDb(in: root, sessions: [
+            (id: "ses_a", model: #"{"id":"glm-5.2","providerID":"ollama-cloud","variant":"max"}"#,
+             input: 10, output: 5, cacheRead: 0, cacheWrite: 0, reasoning: 0, updatedMs: 1_783_636_290_026),
+            (id: "ses_b", model: #"{"id":"claude-sonnet-4","providerID":"anthropic"}"#,
+             input: 50, output: 10, cacheRead: 5, cacheWrite: 2, reasoning: 0, updatedMs: 1_783_636_300_000)
+        ])
+
+        let result = OpenCodeScanner().scan(root: root, now: Date())
+
+        let ollama = try XCTUnwrap(result.events.first { $0.model == "glm-5.2" })
+        XCTAssertEqual(ollama.openCodeProviderID, "ollama-cloud")
+        let anthropic = try XCTUnwrap(result.events.first { $0.model == "claude-sonnet-4" })
+        XCTAssertEqual(anthropic.openCodeProviderID, "anthropic")
+    }
+
+    func testModelJsonMissingProviderIDYieldsNil() throws {
+        let root = try makeTemporaryDirectory()
+        try createOpencodeDb(in: root, sessions: [
+            (id: "ses_a", model: #"{"id":"glm-5.2"}"#,
+             input: 10, output: 5, cacheRead: 0, cacheWrite: 0, reasoning: 0, updatedMs: 1_783_636_290_026)
+        ])
+
+        let result = OpenCodeScanner().scan(root: root, now: Date())
+
+        let event = try XCTUnwrap(result.events.first)
+        XCTAssertNil(event.openCodeProviderID)
+    }
+
     // MARK: - Helpers
 
     private func makeTemporaryDirectory() throws -> URL {
