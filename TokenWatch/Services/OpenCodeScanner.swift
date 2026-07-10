@@ -2,47 +2,71 @@ import Foundation
 
 struct OpenCodeScanner: Sendable {
     func scan(root: URL?, now: Date = Date()) -> ScanResult {
-        guard let root else { return ScanResult(events: [], sources: []) }
+        guard root != nil else { return ScanResult(events: [], sources: []) }
+        var sessionTokens = InMemorySessionTokens()
+        let result = scanDetailed(root: root, sessionTokens: &sessionTokens, now: now)
+        return ScanResult(events: result.inputs.flatMap(\.events).sorted { $0.timestamp < $1.timestamp }, sources: [result.source])
+    }
+
+    func scanDetailed(
+        root: URL?,
+        sessionTokens: inout InMemorySessionTokens,
+        now: Date
+    ) -> ProviderScan {
+        guard let root else {
+            return ProviderScan(provider: .openCode, source: .unconfigured(.openCode), inputs: [])
+        }
         var source = SourceHealth.unconfigured(.openCode)
         guard directoryExists(root) else {
             source.state = .missingExpectedDirectory
             source.lastRefresh = now
-            return ScanResult(events: [], sources: [source])
+            return ProviderScan(provider: .openCode, source: source, inputs: [])
         }
-
-        var events: [UsageEvent] = []
-        var sessionTokens: [String: UUID] = [:]
 
         let dbFiles = openCodeDbFiles(in: root)
         guard !dbFiles.isEmpty else {
             source.state = .missingExpectedDirectory
             source.lastRefresh = now
-            return ScanResult(events: [], sources: [source])
+            return ProviderScan(provider: .openCode, source: source, inputs: [])
         }
 
         source.state = .ready
+        var inputs: [InputScan] = []
         for url in dbFiles {
-            source.scannedFiles += 1
-            do {
-                try scanDb(at: url, events: &events, sessionTokens: &sessionTokens, source: &source, now: now)
-            } catch {
-                source.unreadableFiles += 1
-            }
+            let input = scanInput(at: url, sessionTokens: &sessionTokens)
+            inputs.append(input)
+            merge(input, into: &source)
         }
         if source.unreadableFiles == source.scannedFiles {
             source.state = .inaccessible
         }
 
         source.lastRefresh = now
-        return ScanResult(events: events.sorted { $0.timestamp < $1.timestamp }, sources: [source])
+        return ProviderScan(provider: .openCode, source: source, inputs: inputs)
+    }
+
+    func scanInput(at url: URL, sessionTokens: inout InMemorySessionTokens) -> InputScan {
+        var events: [UsageEvent] = []
+        var source = SourceHealth.unconfigured(.openCode)
+        do {
+            try scanDb(at: url, events: &events, sessionTokens: &sessionTokens, source: &source)
+            return InputScan(
+                provider: .openCode,
+                path: url.path,
+                events: events,
+                malformedLines: source.malformedLines,
+                unreadable: false
+            )
+        } catch {
+            return InputScan(provider: .openCode, path: url.path, events: [], malformedLines: 0, unreadable: true)
+        }
     }
 
     private func scanDb(
         at url: URL,
         events: inout [UsageEvent],
-        sessionTokens: inout [String: UUID],
-        source: inout SourceHealth,
-        now: Date
+        sessionTokens: inout InMemorySessionTokens,
+        source: inout SourceHealth
     ) throws {
         let json = try runSqliteJson(at: url)
         guard let data = json.data(using: .utf8) else { throw OpenCodeScannerError.unreadable }
@@ -50,8 +74,7 @@ struct OpenCodeScanner: Sendable {
         for row in rows {
             let model = row.model.flatMap(decodeModel)
             if model == nil { source.malformedLines += 1 }
-            let sessionToken = sessionTokens[row.id] ?? UUID()
-            sessionTokens[row.id] = sessionToken
+            let sessionToken = sessionTokens.token(for: .openCode, identifier: row.id)
             events.append(
                 UsageEvent(
                     id: UUID(),
@@ -71,6 +94,13 @@ struct OpenCodeScanner: Sendable {
             )
             source.usageRecords += 1
         }
+    }
+
+    private func merge(_ input: InputScan, into source: inout SourceHealth) {
+        source.scannedFiles += 1
+        source.usageRecords += input.events.count
+        source.malformedLines += input.malformedLines
+        if input.unreadable { source.unreadableFiles += 1 }
     }
 
     private struct DecodedModel: Sendable {

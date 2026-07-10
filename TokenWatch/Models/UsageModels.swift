@@ -244,3 +244,64 @@ struct ScanResult: Sendable {
     let events: [UsageEvent]
     let sources: [SourceHealth]
 }
+
+struct InputScan: Sendable {
+    let provider: UsageProvider
+    let path: String
+    let events: [UsageEvent]
+    let malformedLines: Int
+    let unreadable: Bool
+}
+
+struct ProviderScan: Sendable {
+    let provider: UsageProvider
+    let source: SourceHealth
+    let inputs: [InputScan]
+}
+
+struct DetailedScanResult: Sendable {
+    let providers: [ProviderScan]
+    let sessionTokens: InMemorySessionTokens
+
+    var events: [UsageEvent] {
+        providers.flatMap(\.inputs).flatMap(\.events).sorted { $0.timestamp < $1.timestamp }
+    }
+
+    var sources: [SourceHealth] {
+        providers.map(\.source)
+    }
+}
+
+struct InputScanBatch: Sendable {
+    let provider: UsageProvider
+    let inputs: [InputScan]
+    let removedPaths: [String]
+    let sessionTokens: InMemorySessionTokens
+}
+
+struct InMemorySessionTokens: Sendable {
+    private var tokens: [String: UUID] = [:]
+
+    mutating func token(for provider: UsageProvider, identifier: String) -> UUID {
+        let key = opaqueKey(provider: provider, identifier: identifier)
+        if let token = tokens[key] { return token }
+        let token = UUID()
+        tokens[key] = token
+        return token
+    }
+
+    private func opaqueKey(provider: UsageProvider, identifier: String) -> String {
+        var hash: UInt64 = 1_469_598_103_934_665_603
+        for byte in provider.rawValue.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        hash ^= 0
+        hash &*= 1_099_511_628_211
+        for byte in identifier.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return String(hash, radix: 16)
+    }
+}

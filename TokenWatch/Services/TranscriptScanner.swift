@@ -3,90 +3,146 @@ import Foundation
 /// Reads JSONL as bytes and decodes only whitelisted usage metadata. Prompt and response text are never decoded.
 struct TranscriptScanner: Sendable {
     func scan(claudeRoot: URL?, codexRoot: URL?, openCodeRoot: URL?, now: Date = Date()) -> ScanResult {
-        var events: [UsageEvent] = []
-        var healthByProvider = Dictionary(
-            uniqueKeysWithValues: UsageProvider.allCases.map { ($0, SourceHealth.unconfigured($0)) }
+        let result = scanDetailed(
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            openCodeRoot: openCodeRoot,
+            now: now
         )
-
-        scanClaude(root: claudeRoot, events: &events, health: &healthByProvider[.claudeCode], now: now)
-        scanCodex(root: codexRoot, events: &events, health: &healthByProvider[.codex], now: now)
-        scanOpenCode(root: openCodeRoot, events: &events, health: &healthByProvider[.openCode], now: now)
-
-        return ScanResult(
-            events: events.sorted { $0.timestamp < $1.timestamp },
-            sources: UsageProvider.allCases.compactMap { healthByProvider[$0] }
-        )
+        return ScanResult(events: result.events, sources: result.sources)
     }
 
-    /// Scans a single provider. Used by the file-watcher path so a change in one
-    /// provider's directory does not re-scan the other two.
-    func scanProvider(_ provider: UsageProvider, root: URL?, now: Date = Date()) -> (events: [UsageEvent], source: SourceHealth) {
-        var events: [UsageEvent] = []
-        var health: SourceHealth?
-        switch provider {
-        case .claudeCode: scanClaude(root: root, events: &events, health: &health, now: now)
-        case .codex: scanCodex(root: root, events: &events, health: &health, now: now)
-        case .openCode: scanOpenCode(root: root, events: &events, health: &health, now: now)
-        }
-        return (events.sorted { $0.timestamp < $1.timestamp }, health ?? .unconfigured(provider))
+    func scanDetailed(
+        claudeRoot: URL?,
+        codexRoot: URL?,
+        openCodeRoot: URL?,
+        sessionTokens: InMemorySessionTokens = .init(),
+        now: Date = Date()
+    ) -> DetailedScanResult {
+        var sessionTokens = sessionTokens
+        let providers = [
+            scanProvider(.claudeCode, root: claudeRoot, sessionTokens: &sessionTokens, now: now),
+            scanProvider(.codex, root: codexRoot, sessionTokens: &sessionTokens, now: now),
+            scanProvider(.openCode, root: openCodeRoot, sessionTokens: &sessionTokens, now: now)
+        ]
+        return DetailedScanResult(providers: providers, sessionTokens: sessionTokens)
     }
 
-    private func scanOpenCode(
+    func scanProviderDetailed(
+        _ provider: UsageProvider,
         root: URL?,
-        events: inout [UsageEvent],
-        health: inout SourceHealth?,
+        sessionTokens: InMemorySessionTokens,
         now: Date
-    ) {
-        let result = OpenCodeScanner().scan(root: root, now: now)
-        events.append(contentsOf: result.events)
-        if let openCodeHealth = result.sources.first {
-            health = openCodeHealth
+    ) -> DetailedScanResult {
+        var sessionTokens = sessionTokens
+        let provider = scanProvider(provider, root: root, sessionTokens: &sessionTokens, now: now)
+        return DetailedScanResult(providers: [provider], sessionTokens: sessionTokens)
+    }
+
+    func scanInputs(
+        _ provider: UsageProvider,
+        paths: Set<String>,
+        sessionTokens: InMemorySessionTokens
+    ) -> InputScanBatch {
+        var sessionTokens = sessionTokens
+        var inputs: [InputScan] = []
+        var removedPaths: [String] = []
+        for path in paths.sorted() {
+            let url = URL(fileURLWithPath: path)
+            guard isRegularFile(url) else {
+                removedPaths.append(path)
+                continue
+            }
+            switch provider {
+            case .claudeCode:
+                var seenRecordIdentifiers = Set<String>()
+                inputs.append(scanClaudeInput(at: url, sessionTokens: &sessionTokens, seenRecordIdentifiers: &seenRecordIdentifiers))
+            case .codex:
+                inputs.append(scanCodexInput(at: url, sessionTokens: &sessionTokens))
+            case .openCode:
+                inputs.append(OpenCodeScanner().scanInput(at: url, sessionTokens: &sessionTokens))
+            }
+        }
+        return InputScanBatch(provider: provider, inputs: inputs, removedPaths: removedPaths, sessionTokens: sessionTokens)
+    }
+
+    private func scanProvider(
+        _ provider: UsageProvider,
+        root: URL?,
+        sessionTokens: inout InMemorySessionTokens,
+        now: Date
+    ) -> ProviderScan {
+        switch provider {
+        case .claudeCode:
+            scanClaude(root: root, sessionTokens: &sessionTokens, now: now)
+        case .codex:
+            scanCodex(root: root, sessionTokens: &sessionTokens, now: now)
+        case .openCode:
+            OpenCodeScanner().scanDetailed(root: root, sessionTokens: &sessionTokens, now: now)
         }
     }
 
     private func scanClaude(
         root: URL?,
-        events: inout [UsageEvent],
-        health: inout SourceHealth?,
+        sessionTokens: inout InMemorySessionTokens,
         now: Date
-    ) {
-        guard let root else { return }
+    ) -> ProviderScan {
+        guard let root else {
+            return ProviderScan(provider: .claudeCode, source: .unconfigured(.claudeCode), inputs: [])
+        }
         var source = SourceHealth.unconfigured(.claudeCode)
         let directory = root.appendingPathComponent(UsageProvider.claudeCode.expectedRelativeDirectory, isDirectory: true)
         guard directoryExists(directory) else {
             source.state = .missingExpectedDirectory
             source.lastRefresh = now
-            health = source
-            return
+            return ProviderScan(provider: .claudeCode, source: source, inputs: [])
         }
 
         source.state = .ready
-        var sessionTokens: [String: UUID] = [:]
         var seenRecordIdentifiers = Set<String>()
+        var inputs: [InputScan] = []
 
         for url in jsonlFiles(in: directory) {
-            source.scannedFiles += 1
-            do {
-                try scanClaudeFile(
-                    at: url,
-                    events: &events,
-                    sessionTokens: &sessionTokens,
-                    seenRecordIdentifiers: &seenRecordIdentifiers,
-                    source: &source
-                )
-            } catch {
-                source.unreadableFiles += 1
-            }
+            let input = scanClaudeInput(at: url, sessionTokens: &sessionTokens, seenRecordIdentifiers: &seenRecordIdentifiers)
+            inputs.append(input)
+            merge(input, into: &source)
         }
 
         source.lastRefresh = now
-        health = source
+        return ProviderScan(provider: .claudeCode, source: source, inputs: inputs)
+    }
+
+    private func scanClaudeInput(
+        at url: URL,
+        sessionTokens: inout InMemorySessionTokens,
+        seenRecordIdentifiers: inout Set<String>
+    ) -> InputScan {
+        var events: [UsageEvent] = []
+        var source = SourceHealth.unconfigured(.claudeCode)
+        do {
+            try scanClaudeFile(
+                at: url,
+                events: &events,
+                sessionTokens: &sessionTokens,
+                seenRecordIdentifiers: &seenRecordIdentifiers,
+                source: &source
+            )
+            return InputScan(
+                provider: .claudeCode,
+                path: url.path,
+                events: events,
+                malformedLines: source.malformedLines,
+                unreadable: false
+            )
+        } catch {
+            return InputScan(provider: .claudeCode, path: url.path, events: [], malformedLines: 0, unreadable: true)
+        }
     }
 
     private func scanClaudeFile(
         at url: URL,
         events: inout [UsageEvent],
-        sessionTokens: inout [String: UUID],
+        sessionTokens: inout InMemorySessionTokens,
         seenRecordIdentifiers: inout Set<String>,
         source: inout SourceHealth
     ) throws {
@@ -109,8 +165,7 @@ struct TranscriptScanner: Sendable {
             guard seenRecordIdentifiers.insert(recordIdentifier).inserted else { return }
 
             let sessionIdentifier = record.sessionId ?? recordIdentifier
-            let sessionToken = sessionTokens[sessionIdentifier] ?? UUID()
-            sessionTokens[sessionIdentifier] = sessionToken
+            let sessionToken = sessionTokens.token(for: .claudeCode, identifier: sessionIdentifier)
 
             let tokenUsage = TokenUsage(
                 input: usage.inputTokens ?? 0,
@@ -134,37 +189,57 @@ struct TranscriptScanner: Sendable {
 
     private func scanCodex(
         root: URL?,
-        events: inout [UsageEvent],
-        health: inout SourceHealth?,
+        sessionTokens: inout InMemorySessionTokens,
         now: Date
-    ) {
-        guard let root else { return }
+    ) -> ProviderScan {
+        guard let root else {
+            return ProviderScan(provider: .codex, source: .unconfigured(.codex), inputs: [])
+        }
         var source = SourceHealth.unconfigured(.codex)
         let directory = root.appendingPathComponent(UsageProvider.codex.expectedRelativeDirectory, isDirectory: true)
         guard directoryExists(directory) else {
             source.state = .missingExpectedDirectory
             source.lastRefresh = now
-            health = source
-            return
+            return ProviderScan(provider: .codex, source: source, inputs: [])
         }
 
         source.state = .ready
+        var inputs: [InputScan] = []
         for url in jsonlFiles(in: directory) {
-            source.scannedFiles += 1
-            do {
-                try scanCodexFile(at: url, events: &events, source: &source)
-            } catch {
-                source.unreadableFiles += 1
-            }
+            let input = scanCodexInput(at: url, sessionTokens: &sessionTokens)
+            inputs.append(input)
+            merge(input, into: &source)
         }
 
         source.lastRefresh = now
-        health = source
+        return ProviderScan(provider: .codex, source: source, inputs: inputs)
     }
 
-    private func scanCodexFile(at url: URL, events: inout [UsageEvent], source: inout SourceHealth) throws {
+    private func scanCodexInput(at url: URL, sessionTokens: inout InMemorySessionTokens) -> InputScan {
+        var events: [UsageEvent] = []
+        var source = SourceHealth.unconfigured(.codex)
+        let sessionToken = sessionTokens.token(for: .codex, identifier: url.path)
+        do {
+            try scanCodexFile(at: url, sessionToken: sessionToken, events: &events, source: &source)
+            return InputScan(
+                provider: .codex,
+                path: url.path,
+                events: events,
+                malformedLines: source.malformedLines,
+                unreadable: false
+            )
+        } catch {
+            return InputScan(provider: .codex, path: url.path, events: [], malformedLines: 0, unreadable: true)
+        }
+    }
+
+    private func scanCodexFile(
+        at url: URL,
+        sessionToken: UUID,
+        events: inout [UsageEvent],
+        source: inout SourceHealth
+    ) throws {
         let decoder = JSONDecoder()
-        let sessionToken = UUID()
         var model: String?
         var previousTotal: TokenUsage?
         var fallbackFingerprints = Set<String>()
@@ -239,9 +314,20 @@ struct TranscriptScanner: Sendable {
         )
     }
 
+    private func merge(_ input: InputScan, into source: inout SourceHealth) {
+        source.scannedFiles += 1
+        source.usageRecords += input.events.count
+        source.malformedLines += input.malformedLines
+        if input.unreadable { source.unreadableFiles += 1 }
+    }
+
     private func directoryExists(_ url: URL) -> Bool {
         var isDirectory: ObjCBool = false
         return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+
+    private func isRegularFile(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
     }
 
     private func jsonlFiles(in directory: URL) -> [URL] {

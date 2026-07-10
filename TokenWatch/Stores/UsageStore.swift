@@ -12,6 +12,9 @@ final class UsageStore: ObservableObject {
     private var pendingFullRefresh = false
     private var refreshingProviders: Set<UsageProvider> = []
     private var pendingProviderRefreshes: Set<UsageProvider> = []
+    private var pendingInputPaths: [UsageProvider: Set<String>] = [:]
+    private var inputScans: [UsageProvider: [String: InputScan]] = [:]
+    private var sessionTokens = InMemorySessionTokens()
 
     deinit {
         MainActor.assumeIsolated {
@@ -22,7 +25,7 @@ final class UsageStore: ObservableObject {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        watcher.onChange = { [weak self] provider in self?.refreshProvider(provider) }
+        watcher.onChange = { [weak self] change in self?.synchronize(change) }
         refresh()
         for provider in UsageProvider.allCases {
             if let url = ProviderPaths.root(for: provider) {
@@ -44,28 +47,30 @@ final class UsageStore: ObservableObject {
         let codexRoot = ProviderPaths.codexRoot()
         let openCodeRoot = ProviderPaths.openCodeRoot()
         let scanner = TranscriptScanner()
+        let sessionTokens = sessionTokens
 
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
-                scanner.scan(
+                scanner.scanDetailed(
                     claudeRoot: claudeRoot,
                     codexRoot: codexRoot,
-                    openCodeRoot: openCodeRoot
+                    openCodeRoot: openCodeRoot,
+                    sessionTokens: sessionTokens
                 )
             }.value
 
             guard let self else { return }
-            self.applyScanResult(result)
+            self.applyDetailedScanResult(result)
             self.fullRefreshInProgress = false
             self.drainPendingRefreshes()
         }
     }
 
-    /// Incremental per-provider refresh — only re-scans the provider whose files changed.
-    /// Used by the file watcher so a change in one provider does not re-scan the other two.
+    /// Provider-wide recovery pass for dropped FSEvents or directory changes.
     func refreshProvider(_ provider: UsageProvider) {
         guard !fullRefreshInProgress, !refreshingProviders.contains(provider) else {
             pendingProviderRefreshes.insert(provider)
+            pendingInputPaths.removeValue(forKey: provider)
             return
         }
         refreshingProviders.insert(provider)
@@ -73,23 +78,47 @@ final class UsageStore: ObservableObject {
 
         let root = ProviderPaths.root(for: provider)
         let scanner = TranscriptScanner()
+        let sessionTokens = sessionTokens
 
         Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
-                scanner.scanProvider(provider, root: root)
+                scanner.scanProviderDetailed(provider, root: root, sessionTokens: sessionTokens, now: Date())
             }.value
 
             guard let self else { return }
-            let providerEvents = result.events
-            let providerSource = result.source
+            self.applyDetailedScanResult(result)
+            self.refreshingProviders.remove(provider)
+            self.drainPendingRefreshes()
+        }
+    }
 
-            self.events = Self.mergedProviderEvents(
-                existing: self.events,
-                provider: provider,
-                scanned: providerEvents,
-                source: providerSource
-            ).sorted { $0.timestamp < $1.timestamp }
-            self.updateSource(providerSource)
+    private func synchronize(_ change: TranscriptChange) {
+        if change.requiresProviderRescan {
+            refreshProvider(change.provider)
+        } else {
+            refreshInputs(for: change.provider, paths: change.inputPaths)
+        }
+    }
+
+    private func refreshInputs(for provider: UsageProvider, paths: Set<String>) {
+        guard !paths.isEmpty else { return }
+        guard !fullRefreshInProgress, !refreshingProviders.contains(provider), !pendingProviderRefreshes.contains(provider) else {
+            pendingInputPaths[provider, default: []].formUnion(paths)
+            return
+        }
+        refreshingProviders.insert(provider)
+        updateRefreshingState()
+
+        let scanner = TranscriptScanner()
+        let sessionTokens = sessionTokens
+
+        Task { [weak self] in
+            let result = await Task.detached(priority: .utility) {
+                scanner.scanInputs(provider, paths: paths, sessionTokens: sessionTokens)
+            }.value
+
+            guard let self else { return }
+            self.applyInputScanBatch(result)
             self.refreshingProviders.remove(provider)
             self.drainPendingRefreshes()
         }
@@ -117,19 +146,87 @@ final class UsageStore: ObservableObject {
         return existing.filter { $0.provider != provider } + scanned
     }
 
-    private func applyScanResult(_ result: ScanResult) {
-        var mergedEvents = events
-        for provider in UsageProvider.allCases {
-            guard let source = result.sources.first(where: { $0.provider == provider }) else { continue }
-            mergedEvents = Self.mergedProviderEvents(
-                existing: mergedEvents,
-                provider: provider,
-                scanned: result.events.filter { $0.provider == provider },
-                source: source
-            )
+    private func applyDetailedScanResult(_ result: DetailedScanResult) {
+        for providerScan in result.providers {
+            let source = providerScan.source
+            let hasLastKnownGood = !(inputScans[providerScan.provider]?.isEmpty ?? true)
+            let allScannedFilesFailed = source.scannedFiles > 0 && source.unreadableFiles == source.scannedFiles
+            if !hasLastKnownGood || !allScannedFilesFailed {
+                inputScans[providerScan.provider] = Dictionary(
+                    uniqueKeysWithValues: providerScan.inputs.map { ($0.path, $0) }
+                )
+            }
             updateSource(source)
         }
-        events = mergedEvents.sorted { $0.timestamp < $1.timestamp }
+        sessionTokens = result.sessionTokens
+        rebuildEvents()
+    }
+
+    private func applyInputScanBatch(_ batch: InputScanBatch) {
+        var providerInputs = inputScans[batch.provider, default: [:]]
+        for path in batch.removedPaths {
+            providerInputs.removeValue(forKey: path)
+        }
+        for input in batch.inputs {
+            if input.unreadable, let previous = providerInputs[input.path] {
+                providerInputs[input.path] = InputScan(
+                    provider: previous.provider,
+                    path: previous.path,
+                    events: previous.events,
+                    malformedLines: previous.malformedLines,
+                    unreadable: true
+                )
+            } else {
+                providerInputs[input.path] = input
+            }
+        }
+        inputScans[batch.provider] = providerInputs
+        sessionTokens = batch.sessionTokens
+        updateSource(incrementalSourceHealth(for: batch.provider, inputs: providerInputs.values, now: Date()))
+        rebuildEvents()
+    }
+
+    private func rebuildEvents() {
+        events = inputScans.values
+            .flatMap(\.values)
+            .flatMap(\.events)
+            .sorted { $0.timestamp < $1.timestamp }
+    }
+
+    private func incrementalSourceHealth(
+        for provider: UsageProvider,
+        inputs: Dictionary<String, InputScan>.Values,
+        now: Date
+    ) -> SourceHealth {
+        var source = SourceHealth.unconfigured(provider)
+        guard let root = ProviderPaths.root(for: provider) else { return source }
+        let directory = root.appendingPathComponent(provider.expectedRelativeDirectory, isDirectory: true)
+        guard directoryExists(directory) else {
+            source.state = .missingExpectedDirectory
+            source.lastRefresh = now
+            return source
+        }
+        guard provider != .openCode || !inputs.isEmpty else {
+            source.state = .missingExpectedDirectory
+            source.lastRefresh = now
+            return source
+        }
+
+        source.state = .ready
+        source.scannedFiles = inputs.count
+        source.usageRecords = inputs.map { $0.events.count }.reduce(0, +)
+        source.malformedLines = inputs.map(\.malformedLines).reduce(0, +)
+        source.unreadableFiles = inputs.filter(\.unreadable).count
+        if provider == .openCode, source.unreadableFiles == source.scannedFiles {
+            source.state = .inaccessible
+        }
+        source.lastRefresh = now
+        return source
+    }
+
+    private func directoryExists(_ url: URL) -> Bool {
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
     private func updateSource(_ source: SourceHealth) {
@@ -149,6 +246,7 @@ final class UsageStore: ObservableObject {
         if pendingFullRefresh {
             pendingFullRefresh = false
             pendingProviderRefreshes.removeAll()
+            pendingInputPaths.removeAll()
             refresh()
             return
         }
@@ -157,6 +255,11 @@ final class UsageStore: ObservableObject {
         pendingProviderRefreshes.removeAll()
         for provider in providers {
             refreshProvider(provider)
+        }
+        let inputs = pendingInputPaths
+        pendingInputPaths.removeAll()
+        for (provider, paths) in inputs where !providers.contains(provider) {
+            refreshInputs(for: provider, paths: paths)
         }
         updateRefreshingState()
     }

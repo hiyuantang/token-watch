@@ -45,6 +45,36 @@ final class UsageScannerTests: XCTestCase {
         XCTAssertEqual(result.events.map(\.provider), [.codex, .codex, .codex])
     }
 
+    func testTargetedInputScanReadsOnlyTheChangedTranscript() throws {
+        let root = try makeTemporaryDirectory(named: ".claude")
+        let projects = root.appendingPathComponent("projects/session", isDirectory: true)
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+        let unchanged = projects.appendingPathComponent("unchanged.jsonl")
+        let changed = projects.appendingPathComponent("changed.jsonl")
+        try Data(#"{"type":"assistant","timestamp":"2026-07-09T10:00:00Z","sessionId":"unchanged","uuid":"u1","message":{"id":"u1","model":"claude-test","usage":{"input_tokens":10,"output_tokens":2}}}"# .utf8).write(to: unchanged)
+        try Data(#"{"type":"assistant","timestamp":"2026-07-09T10:01:00Z","sessionId":"changed","uuid":"c1","message":{"id":"c1","model":"claude-test","usage":{"input_tokens":20,"output_tokens":3}}}"# .utf8).write(to: changed)
+
+        let scanner = TranscriptScanner()
+        let initial = scanner.scanDetailed(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)
+        let originalToken = try XCTUnwrap(
+            initial.providers
+                .first { $0.provider == .claudeCode }?
+                .inputs
+                .first { URL(fileURLWithPath: $0.path).lastPathComponent == changed.lastPathComponent }?
+                .events
+                .first?
+                .sessionToken
+        )
+
+        try Data(#"{"type":"assistant","timestamp":"2026-07-09T10:02:00Z","sessionId":"changed","uuid":"c2","message":{"id":"c2","model":"claude-test","usage":{"input_tokens":30,"output_tokens":4}}}"# .utf8).write(to: changed, options: .atomic)
+        let incremental = scanner.scanInputs(.claudeCode, paths: [changed.path], sessionTokens: initial.sessionTokens)
+
+        XCTAssertEqual(incremental.inputs.map { URL(fileURLWithPath: $0.path).lastPathComponent }, [changed.lastPathComponent])
+        XCTAssertEqual(incremental.inputs.first?.events.count, 1)
+        XCTAssertEqual(incremental.inputs.first?.events.first?.sessionToken, originalToken)
+        XCTAssertTrue(incremental.removedPaths.isEmpty)
+    }
+
     func testMissingExpectedDirectoryIsVisibleAsSourceHealth() throws {
         let root = try makeTemporaryDirectory(named: ".claude")
         let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)

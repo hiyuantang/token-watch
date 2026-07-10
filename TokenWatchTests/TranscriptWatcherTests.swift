@@ -52,8 +52,8 @@ final class TranscriptWatcherTests: XCTestCase {
         try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
 
         let watcher = TranscriptWatcher()
-        var firedProviders: [UsageProvider] = []
-        watcher.onChange = { firedProviders.append($0) }
+        var changes: [TranscriptChange] = []
+        watcher.onChange = { changes.append($0) }
 
         watcher.start(for: .claudeCode, directory: dir)
 
@@ -65,14 +65,15 @@ final class TranscriptWatcherTests: XCTestCase {
         wait(for: [expectation], timeout: 5.0)
 
         watcher.stopAll()
-        XCTAssertTrue(firedProviders.contains(.claudeCode), "Expected .claudeCode to fire; got \(firedProviders)")
-        XCTAssertFalse(firedProviders.contains(.codex), ".codex should never fire for a .claudeCode stream")
+        let change = try XCTUnwrap(changes.first { $0.provider == .claudeCode })
+        XCTAssertEqual(change.inputPaths.map { URL(fileURLWithPath: $0).lastPathComponent }, [file.lastPathComponent])
+        XCTAssertFalse(changes.contains { $0.provider == .codex }, ".codex should never fire for a .claudeCode stream")
     }
 
     func testDispatchChangeDebouncesBurst() async throws {
         let watcher = TranscriptWatcher(debounceDuration: .milliseconds(50))
         var firedProviders: [UsageProvider] = []
-        watcher.onChange = { firedProviders.append($0) }
+        watcher.onChange = { firedProviders.append($0.provider) }
 
         watcher.dispatchChange(.openCode)
         watcher.dispatchChange(.openCode)
@@ -82,6 +83,26 @@ final class TranscriptWatcherTests: XCTestCase {
         XCTAssertTrue(firedProviders.isEmpty)
         try await Task.sleep(for: .milliseconds(75))
         XCTAssertEqual(firedProviders, [.openCode])
+    }
+
+    func testDispatchChangeDebouncesAndMergesInputPaths() async throws {
+        let watcher = TranscriptWatcher(debounceDuration: .milliseconds(50))
+        var changes: [TranscriptChange] = []
+        watcher.onChange = { changes.append($0) }
+
+        watcher.dispatchChange(
+            TranscriptChange(provider: .codex, inputPaths: ["/tmp/one.jsonl"], requiresProviderRescan: false)
+        )
+        watcher.dispatchChange(
+            TranscriptChange(provider: .codex, inputPaths: ["/tmp/two.jsonl"], requiresProviderRescan: false)
+        )
+
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(changes.count, 1)
+        XCTAssertEqual(changes.first?.provider, .codex)
+        XCTAssertEqual(changes.first?.inputPaths, ["/tmp/one.jsonl", "/tmp/two.jsonl"])
+        XCTAssertFalse(changes.first?.requiresProviderRescan ?? true)
     }
 
     func testRelevanceFiltersUnrelatedFilesAndRecognizesScannerInputs() throws {
@@ -135,7 +156,7 @@ final class TranscriptWatcherTests: XCTestCase {
         let root = try makeTemporaryDirectory()
         let watcher = TranscriptWatcher(debounceDuration: .milliseconds(50))
         var firedProviders: [UsageProvider] = []
-        watcher.onChange = { firedProviders.append($0) }
+        watcher.onChange = { firedProviders.append($0.provider) }
         watcher.start(for: .openCode, directory: root)
 
         try Data("noise".utf8).write(to: root.appendingPathComponent("activity.log"))

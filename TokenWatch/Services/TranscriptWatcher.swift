@@ -1,9 +1,15 @@
 import CoreServices
 import Foundation
 
+struct TranscriptChange: Sendable {
+    let provider: UsageProvider
+    let inputPaths: Set<String>
+    let requiresProviderRescan: Bool
+}
+
 @MainActor
 final class TranscriptWatcher {
-    var onChange: ((UsageProvider) -> Void)?
+    var onChange: ((TranscriptChange) -> Void)?
 
     private struct Watch: @unchecked Sendable {
         let stream: FSEventStreamRef
@@ -17,8 +23,14 @@ final class TranscriptWatcher {
         let flags: FSEventStreamEventFlags
     }
 
+    private struct PendingChange {
+        let task: Task<Void, Never>
+        let inputPaths: Set<String>
+        let requiresProviderRescan: Bool
+    }
+
     private var watches: [UsageProvider: Watch] = [:]
-    private var pendingChanges: [UsageProvider: Task<Void, Never>] = [:]
+    private var pendingChanges: [UsageProvider: PendingChange] = [:]
     private let debounceDuration: Duration
 
     init(debounceDuration: Duration = .milliseconds(750)) {
@@ -26,8 +38,8 @@ final class TranscriptWatcher {
     }
 
     deinit {
-        for task in pendingChanges.values {
-            task.cancel()
+        for pendingChange in pendingChanges.values {
+            pendingChange.task.cancel()
         }
         for watch in watches.values {
             FSEventStreamStop(watch.stream)
@@ -89,7 +101,7 @@ final class TranscriptWatcher {
     }
 
     func stop(for provider: UsageProvider) {
-        pendingChanges.removeValue(forKey: provider)?.cancel()
+        pendingChanges.removeValue(forKey: provider)?.task.cancel()
         guard let watch = watches.removeValue(forKey: provider) else { return }
         FSEventStreamStop(watch.stream)
         FSEventStreamInvalidate(watch.stream)
@@ -107,28 +119,63 @@ final class TranscriptWatcher {
     }
 
     func dispatchChange(_ provider: UsageProvider) {
-        pendingChanges.removeValue(forKey: provider)?.cancel()
+        dispatchChange(
+            TranscriptChange(provider: provider, inputPaths: [], requiresProviderRescan: true)
+        )
+    }
+
+    func dispatchChange(_ change: TranscriptChange) {
+        let provider = change.provider
+        let previous = pendingChanges.removeValue(forKey: provider)
+        previous?.task.cancel()
+        let inputPaths = (previous?.inputPaths ?? []).union(change.inputPaths)
+        let requiresProviderRescan = (previous?.requiresProviderRescan ?? false) || change.requiresProviderRescan
         let debounceDuration = debounceDuration
-        pendingChanges[provider] = Task { [weak self] in
+        let task = Task { [weak self] in
             try? await Task.sleep(for: debounceDuration)
             guard !Task.isCancelled, let self else { return }
-            self.pendingChanges.removeValue(forKey: provider)
-            self.onChange?(provider)
+            guard let pendingChange = self.pendingChanges.removeValue(forKey: provider) else { return }
+            self.onChange?(
+                TranscriptChange(
+                    provider: provider,
+                    inputPaths: pendingChange.inputPaths,
+                    requiresProviderRescan: pendingChange.requiresProviderRescan
+                )
+            )
         }
+        pendingChanges[provider] = PendingChange(
+            task: task,
+            inputPaths: inputPaths,
+            requiresProviderRescan: requiresProviderRescan
+        )
     }
 
     private func receive(_ events: [FileEvent], for provider: UsageProvider) {
         guard let watch = watches[provider] else { return }
-        guard events.contains(where: {
-            Self.isRelevant(path: $0.path, flags: $0.flags, for: provider, providerRoot: watch.providerRoot)
-        }) else { return }
+        var inputPaths = Set<String>()
+        var requiresProviderRescan = false
+        for event in events {
+            guard Self.isRelevant(path: event.path, flags: event.flags, for: provider, providerRoot: watch.providerRoot) else { continue }
+            if event.flags & Self.recoveryFlags != 0 || Self.isDirectoryMutation(event.flags) {
+                requiresProviderRescan = true
+            } else if let inputPath = Self.inputPath(for: event.path, provider: provider) {
+                inputPaths.insert(inputPath)
+            }
+        }
+        guard requiresProviderRescan || !inputPaths.isEmpty else { return }
 
         let preferredDirectory = Self.watchedDirectory(for: provider, providerRoot: watch.providerRoot)
         let rootChanged = events.contains { $0.flags & Self.rootChangedFlag != 0 }
         if rootChanged || preferredDirectory.standardizedFileURL != watch.watchedDirectory.standardizedFileURL {
             start(for: provider, directory: watch.providerRoot)
         }
-        dispatchChange(provider)
+        dispatchChange(
+            TranscriptChange(
+                provider: provider,
+                inputPaths: inputPaths,
+                requiresProviderRescan: requiresProviderRescan
+            )
+        )
     }
 
     static func isRelevant(
@@ -171,6 +218,24 @@ final class TranscriptWatcher {
         | kFSEventStreamEventFlagItemRemoved
         | kFSEventStreamEventFlagItemRenamed
     )
+
+    private static func isDirectoryMutation(_ flags: FSEventStreamEventFlags) -> Bool {
+        flags & directoryMutationFlags != 0 && flags & UInt32(kFSEventStreamEventFlagItemIsDir) != 0
+    }
+
+    private static func inputPath(for path: String, provider: UsageProvider) -> String? {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        switch provider {
+        case .claudeCode, .codex:
+            return url.pathExtension.lowercased() == "jsonl" ? url.path : nil
+        case .openCode:
+            let name = url.lastPathComponent
+            if name.hasSuffix("-wal") || name.hasSuffix("-shm") {
+                return url.deletingLastPathComponent().appendingPathComponent(String(name.dropLast(4))).path
+            }
+            return name.hasSuffix(".db") ? url.path : nil
+        }
+    }
 
     private static func watchedDirectory(for provider: UsageProvider, providerRoot: URL) -> URL {
         guard provider != .openCode else { return providerRoot }
