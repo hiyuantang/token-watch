@@ -136,4 +136,11 @@ final class PricingTests: XCTestCase {
         let usage = TokenUsage(input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheWrite: 1_000_000)
         XCTAssertEqual(Pricing.cost(of: usage, at: Pricing.unknown), 0)
     }
+
+    func testCacheReportingDenylistStartsWithOllamaCloud() {
+        XCTAssertTrue(CacheReporting.nonReportingOpenCodeProviders.contains("ollama-cloud"))
+        // An empty string must never be considered non-reporting — events with a
+        // missing providerID default to "reporting" so they aren't silently dropped.
+        XCTAssertFalse(CacheReporting.nonReportingOpenCodeProviders.contains(""))
+    }
 }

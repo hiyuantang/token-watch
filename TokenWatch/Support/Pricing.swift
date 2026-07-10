@@ -162,3 +162,15 @@ struct Pricing {
         return inputCost + cacheReadCost + cacheWriteCost + outputCost + reasoningCost
     }
 }
+
+/// Identifies OpenCode model-provider IDs that do NOT report cache-read/cache-write
+/// tokens in their usage object. Events routed through these providers are excluded
+/// from the cache-read-share denominator so the percentage reflects only providers
+/// that actually report cache metrics.
+///
+/// Claude Code and Codex always report cache, so this denylist applies only to
+/// providerID values found in OpenCode's session.model JSON column.
+/// Keep this list in sync with docs/pricing.md's "Cache reporting" section.
+enum CacheReporting {
+    static let nonReportingOpenCodeProviders: Set<String> = ["ollama-cloud"]
+}
