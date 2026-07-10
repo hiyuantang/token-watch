@@ -187,9 +187,9 @@ final class UsageSnapshotTests: XCTestCase {
             openCodeProviderID: "ollama-cloud"
         )
         // Older event in the month window but OUTSIDE the week window (15 days back).
-// This forces the step-back loop to skip the empty .week iteration and use
-// .month, pinning the wider-range fallback order. .week rangeStart is
-// `startOfDay(now) − 6 days`; .month rangeStart is `now − 29 days`.
+        // Forces the step-back loop to skip the empty .week iteration and use
+        // .month, pinning the wider-range fallback order. .week rangeStart is
+        // startOfDay(now) - 6 days; .month rangeStart is startOfDay(now) - 29 days.
         let oldReporting = UsageEvent(
             id: UUID(),
             provider: .claudeCode,
@@ -261,4 +261,3 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertNil(snapshot.cacheReadShare)
     }
 }
-
