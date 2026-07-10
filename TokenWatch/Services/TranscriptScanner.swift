@@ -18,6 +18,19 @@ struct TranscriptScanner: Sendable {
         )
     }
 
+    /// Scans a single provider. Used by the file-watcher path so a change in one
+    /// provider's directory does not re-scan the other two.
+    func scanProvider(_ provider: UsageProvider, root: URL?, now: Date = Date()) -> (events: [UsageEvent], source: SourceHealth) {
+        var events: [UsageEvent] = []
+        var health: SourceHealth?
+        switch provider {
+        case .claudeCode: scanClaude(root: root, events: &events, health: &health, now: now)
+        case .codex: scanCodex(root: root, events: &events, health: &health, now: now)
+        case .openCode: scanOpenCode(root: root, events: &events, health: &health, now: now)
+        }
+        return (events.sorted { $0.timestamp < $1.timestamp }, health ?? .unconfigured(provider))
+    }
+
     private func scanOpenCode(
         root: URL?,
         events: inout [UsageEvent],

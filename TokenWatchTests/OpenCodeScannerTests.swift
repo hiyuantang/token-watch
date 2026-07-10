@@ -86,6 +86,41 @@ final class OpenCodeScannerTests: XCTestCase {
         XCTAssertEqual(health.usageRecords, 1)
     }
 
+    func testNullModelStillEmitsEventsWithUnknownModel() throws {
+        let root = try makeTemporaryDirectory()
+        let dbPath = root.appendingPathComponent("opencode.db")
+        try runSqlite(dbPath, sql: """
+            CREATE TABLE session (
+                id TEXT PRIMARY KEY,
+                model TEXT,
+                tokens_input INTEGER NOT NULL,
+                tokens_output INTEGER NOT NULL,
+                tokens_cache_read INTEGER NOT NULL,
+                tokens_cache_write INTEGER NOT NULL,
+                tokens_reasoning INTEGER NOT NULL,
+                cost REAL NOT NULL,
+                time_created INTEGER NOT NULL,
+                time_updated INTEGER NOT NULL
+            );
+            INSERT INTO session (id, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, tokens_reasoning, cost, time_created, time_updated)
+            VALUES ('ses_null', NULL, 100, 20, 0, 0, 0, 0.0, 1_783_636_290_026, 1_783_636_290_026);
+            INSERT INTO session (id, model, tokens_input, tokens_output, tokens_cache_read, tokens_cache_write, tokens_reasoning, cost, time_created, time_updated)
+            VALUES ('ses_with_model', '{"id":"glm-5.2"}', 50, 10, 0, 0, 0, 0.0, 1_783_636_300_000, 1_783_636_300_000);
+            """)
+
+        let result = OpenCodeScanner().scan(root: root, now: Date())
+
+        XCTAssertEqual(result.events.count, 2)
+        let nullModelEvent = try XCTUnwrap(result.events.first { $0.usage.input == 100 })
+        XCTAssertEqual(nullModelEvent.model, "Unknown model")
+        XCTAssertEqual(nullModelEvent.usage.output, 20)
+        let withModelEvent = try XCTUnwrap(result.events.first { $0.model == "glm-5.2" })
+        XCTAssertEqual(withModelEvent.usage.input, 50)
+        let health = try XCTUnwrap(result.sources.first { $0.provider == .openCode })
+        XCTAssertEqual(health.usageRecords, 2)
+        XCTAssertEqual(health.malformedLines, 1)
+    }
+
     // MARK: - Helpers
 
     private func makeTemporaryDirectory() throws -> URL {

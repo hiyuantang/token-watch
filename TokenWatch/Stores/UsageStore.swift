@@ -7,6 +7,7 @@ final class UsageStore: ObservableObject {
     @Published private(set) var isRefreshing = false
 
     private let watcher = TranscriptWatcher()
+    private var refreshingProviders: Set<UsageProvider> = []
 
     deinit {
         MainActor.assumeIsolated {
@@ -15,7 +16,7 @@ final class UsageStore: ObservableObject {
     }
 
     func start() {
-        watcher.onChange = { [weak self] _ in self?.refresh() }
+        watcher.onChange = { [weak self] provider in self?.refreshProvider(provider) }
         refresh()
         for provider in UsageProvider.allCases {
             if let url = ProviderPaths.root(for: provider) {
@@ -24,6 +25,7 @@ final class UsageStore: ObservableObject {
         }
     }
 
+    /// Full initial sync — re-scans all three providers. Used at launch and by manual sync.
     func refresh() {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -46,6 +48,34 @@ final class UsageStore: ObservableObject {
             self.events = result.events
             self.sources = result.sources
             self.isRefreshing = false
+        }
+    }
+
+    /// Incremental per-provider refresh — only re-scans the provider whose files changed.
+    /// Used by the file watcher so a change in one provider does not re-scan the other two.
+    func refreshProvider(_ provider: UsageProvider) {
+        guard !refreshingProviders.contains(provider) else { return }
+        refreshingProviders.insert(provider)
+        if !isRefreshing { isRefreshing = true }
+
+        let root = ProviderPaths.root(for: provider)
+        let scanner = TranscriptScanner()
+
+        Task { [weak self] in
+            let result = await Task.detached(priority: .utility) {
+                scanner.scanProvider(provider, root: root)
+            }.value
+
+            guard let self else { return }
+            let providerEvents = result.events
+            let providerSource = result.source
+
+            self.events = self.events.filter { $0.provider != provider } + providerEvents
+            if let index = self.sources.firstIndex(where: { $0.provider == provider }) {
+                self.sources[index] = providerSource
+            }
+            self.refreshingProviders.remove(provider)
+            if self.refreshingProviders.isEmpty { self.isRefreshing = false }
         }
     }
 

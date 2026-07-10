@@ -48,7 +48,7 @@ struct OpenCodeScanner: Sendable {
         }
         let rows = (try? JSONDecoder().decode([OpenCodeSessionRow].self, from: data)) ?? []
         for row in rows {
-            let model = decodeModelId(row.model) ?? {
+            let model = row.model.flatMap(decodeModelId) ?? {
                 source.malformedLines += 1
                 return "Unknown model"
             }()
@@ -145,7 +145,7 @@ private enum OpenCodeScannerError: Error {
 
 private struct OpenCodeSessionRow: Decodable {
     let id: String
-    let model: String
+    let model: String?
     let tokensInput: Int
     let tokensOutput: Int
     let tokensCacheRead: Int
