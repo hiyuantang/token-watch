@@ -158,10 +158,7 @@ enum UsageAggregator {
             $0.date == $1.date ? $0.provider.rawValue < $1.provider.rawValue : $0.date < $1.date
         }
 
-        let cacheDenominator = usage.input + usage.cacheRead
-        let cacheReadShare: CacheShare? = cacheDenominator == 0
-            ? nil
-            : .init(value: Double(usage.cacheRead) / Double(cacheDenominator), inferred: false)
+        let cacheReadShare = computeCacheShare(from: selectedEvents, allEvents: events, range: range, now: now, calendar: calendar)
         let models = modelUsage.map { key, value in
             ModelSummary(
                 provider: key.provider,
@@ -224,6 +221,46 @@ enum UsageAggregator {
             day = previousDay
         }
         return count
+    }
+
+    private static func computeCacheShare(
+        from selectedEvents: [UsageEvent],
+        allEvents: [UsageEvent],
+        range: UsageRange,
+        now: Date,
+        calendar: Calendar
+    ) -> CacheShare? {
+        if let share = cacheShare(over: selectedEvents) {
+            return share
+        }
+        for wider in widerRanges(after: range) {
+            let start = rangeStart(wider, now: now, calendar: calendar)
+            let window = allEvents.filter { $0.timestamp >= start && $0.timestamp <= now }
+            if let share = cacheShare(over: window) {
+                return .init(value: share.value, inferred: true)
+            }
+        }
+        return nil
+    }
+
+    private static func cacheShare(over events: [UsageEvent]) -> CacheShare? {
+        let cacheEvents = events.filter(reportsCacheTokens)
+        let cacheRead = cacheEvents.map(\.usage.cacheRead).reduce(0, +)
+        let input = cacheEvents.map(\.usage.input).reduce(0, +)
+        let denom = cacheRead + input
+        guard denom > 0 else { return nil }
+        return .init(value: Double(cacheRead) / Double(denom), inferred: false)
+    }
+
+    private static func reportsCacheTokens(_ event: UsageEvent) -> Bool {
+        event.provider != .openCode
+        || !CacheReporting.nonReportingOpenCodeProviders.contains(event.openCodeProviderID ?? "")
+    }
+
+    private static func widerRanges(after range: UsageRange) -> [UsageRange] {
+        let all = UsageRange.allCases
+        guard let start = all.firstIndex(of: range) else { return [] }
+        return Array(all[(start + 1)...])
     }
 
     private static func peakActivityLabel(timeline: [TimelineBucket], range: UsageRange) -> String {

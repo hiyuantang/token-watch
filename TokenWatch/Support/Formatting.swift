@@ -21,4 +21,13 @@ enum TokenFormatting {
         }
         return value.formatted(.currency(code: "USD").notation(.compactName).precision(.fractionLength(0 ... 2)))
     }
+
+    /// Cache-share display string. `~` prefix when the value was inferred by
+    /// stepping back to a wider range; `-` when no cache-reporting data exists
+    /// in any range.
+    static func cacheShareText(_ share: CacheShare?) -> String {
+        guard let share else { return "-" }
+        let prefix = share.inferred ? "~" : ""
+        return prefix + percentage(share.value)
+    }
 }

@@ -137,4 +137,126 @@ final class UsageSnapshotTests: XCTestCase {
             XCTAssertEqual(provider.costUSD, 0)
         }
     }
+
+    func testCacheShareExcludesOpenCodeNonReportingEvents() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let reporting = UsageEvent(
+            id: UUID(),
+            provider: .claudeCode,
+            timestamp: now,
+            model: "claude-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 100, output: 0, cacheRead: 50, cacheWrite: 0)
+        )
+        let nonReporting = UsageEvent(
+            id: UUID(),
+            provider: .openCode,
+            timestamp: now,
+            model: "glm-5.2",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 10_000, output: 0, cacheRead: 0, cacheWrite: 0),
+            openCodeProviderID: "ollama-cloud"
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [reporting, nonReporting],
+            range: .total,
+            sources: sources,
+            now: now
+        )
+
+        // Only the claude event contributes: 50 / (100 + 50) = 0.333…
+        let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
+        XCTAssertEqual(cacheShare.value, 50.0 / 150.0, accuracy: 0.0001)
+        XCTAssertFalse(cacheShare.inferred)
+        // Overall usage includes BOTH events (the filter only affects cache share).
+        XCTAssertEqual(snapshot.usage.input, 10_100)
+    }
+
+    func testCacheShareStepsBackToWiderRangeWhenSelectedHasNoReportingEvents() throws {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        // 1D only has non-reporting events.
+        let recentNonReporting = UsageEvent(
+            id: UUID(),
+            provider: .openCode,
+            timestamp: now,
+            model: "glm-5.2",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 1_000, output: 0, cacheRead: 0, cacheWrite: 0),
+            openCodeProviderID: "ollama-cloud"
+        )
+        // Older event in the week window from a reporting provider (3 days back,
+        // within the .week rangeStart of `startOfDay(now) − 6 days`).
+        let oldReporting = UsageEvent(
+            id: UUID(),
+            provider: .claudeCode,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-06T09:00:00Z")!,
+            model: "claude-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 200, output: 0, cacheRead: 100, cacheWrite: 0)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [recentNonReporting, oldReporting],
+            range: .day,
+            sources: sources,
+            now: now
+        )
+
+        // 100 / (200 + 100) = 0.333…
+        let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
+        XCTAssertEqual(cacheShare.value, 100.0 / 300.0, accuracy: 0.0001)
+        XCTAssertTrue(cacheShare.inferred)
+    }
+
+    func testCacheShareIsNilWhenNoRangeHasReportingEvents() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let onlyNonReporting = UsageEvent(
+            id: UUID(),
+            provider: .openCode,
+            timestamp: now,
+            model: "glm-5.2",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 1_000, output: 500, cacheRead: 0, cacheWrite: 0),
+            openCodeProviderID: "ollama-cloud"
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [onlyNonReporting],
+            range: .day,
+            sources: sources,
+            now: now
+        )
+
+        XCTAssertNil(snapshot.cacheReadShare)
+        // Usage totals are still computed from all events, regardless of cache reporting.
+        XCTAssertEqual(snapshot.usage.input, 1_000)
+    }
+
+    func testCacheShareIsNilWhenTotalRangeHasNoReportingEvents() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let onlyNonReporting = UsageEvent(
+            id: UUID(),
+            provider: .openCode,
+            timestamp: ISO8601DateFormatter().date(from: "2025-01-01T00:00:00Z")!,
+            model: "glm-5.2",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 100, output: 0, cacheRead: 0, cacheWrite: 0),
+            openCodeProviderID: "ollama-cloud"
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [onlyNonReporting],
+            range: .total,
+            sources: sources,
+            now: now
+        )
+
+        XCTAssertNil(snapshot.cacheReadShare)
+    }
 }
+
