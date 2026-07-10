@@ -186,12 +186,14 @@ final class UsageSnapshotTests: XCTestCase {
             usage: TokenUsage(input: 1_000, output: 0, cacheRead: 0, cacheWrite: 0),
             openCodeProviderID: "ollama-cloud"
         )
-        // Older event in the week window from a reporting provider (3 days back,
-        // within the .week rangeStart of `startOfDay(now) − 6 days`).
+        // Older event in the month window but OUTSIDE the week window (15 days back).
+// This forces the step-back loop to skip the empty .week iteration and use
+// .month, pinning the wider-range fallback order. .week rangeStart is
+// `startOfDay(now) − 6 days`; .month rangeStart is `now − 29 days`.
         let oldReporting = UsageEvent(
             id: UUID(),
             provider: .claudeCode,
-            timestamp: ISO8601DateFormatter().date(from: "2026-07-06T09:00:00Z")!,
+            timestamp: ISO8601DateFormatter().date(from: "2026-06-24T09:00:00Z")!,
             model: "claude-test",
             sessionToken: UUID(),
             usage: TokenUsage(input: 200, output: 0, cacheRead: 100, cacheWrite: 0)
