@@ -100,9 +100,6 @@ struct MenuBarPopover: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .monospacedDigit()
-                Text("Observed in local \(range.shortTitle) transcript records")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
