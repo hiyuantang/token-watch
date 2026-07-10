@@ -5,7 +5,6 @@ final class UsageStore: ObservableObject {
     @Published private(set) var events: [UsageEvent] = []
     @Published private(set) var sources: [SourceHealth] = UsageProvider.allCases.map(SourceHealth.unconfigured)
     @Published private(set) var isRefreshing = false
-    @Published private(set) var lastMessage: String?
 
     private let watcher = TranscriptWatcher()
 
@@ -28,7 +27,6 @@ final class UsageStore: ObservableObject {
     func refresh() {
         guard !isRefreshing else { return }
         isRefreshing = true
-        lastMessage = nil
 
         let claudeRoot = ProviderPaths.claudeRoot()
         let codexRoot = ProviderPaths.codexRoot()

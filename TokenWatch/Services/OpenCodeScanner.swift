@@ -100,11 +100,12 @@ struct OpenCodeScanner: Sendable {
         process.standardOutput = pipe
         process.standardError = Pipe()
         try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else {
             throw OpenCodeScannerError.unreadable
         }
-        return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
     private func directoryExists(_ url: URL) -> Bool {

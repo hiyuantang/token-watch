@@ -114,12 +114,6 @@ struct MenuBarPopover: View {
                 }
             }
 
-            if let message = store.lastMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             HStack {
                 Button("Open Dashboard") {
                     openWindow(id: "dashboard")
