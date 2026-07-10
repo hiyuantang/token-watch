@@ -68,6 +68,21 @@ final class TranscriptWatcherTests: XCTestCase {
         XCTAssertFalse(firedProviders.contains(.codex), ".codex should never fire for a .claudeCode stream")
     }
 
+    func testDispatchChangeDebouncesBurst() async throws {
+        let watcher = TranscriptWatcher(debounceDuration: .milliseconds(50))
+        var firedProviders: [UsageProvider] = []
+        watcher.onChange = { firedProviders.append($0) }
+
+        watcher.dispatchChange(.openCode)
+        watcher.dispatchChange(.openCode)
+        watcher.dispatchChange(.openCode)
+
+        try await Task.sleep(for: .milliseconds(25))
+        XCTAssertTrue(firedProviders.isEmpty)
+        try await Task.sleep(for: .milliseconds(75))
+        XCTAssertEqual(firedProviders, [.openCode])
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TokenWatchWatcher-\(UUID().uuidString)", isDirectory: true)

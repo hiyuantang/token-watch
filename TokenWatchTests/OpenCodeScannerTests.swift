@@ -82,8 +82,22 @@ final class OpenCodeScannerTests: XCTestCase {
 
         XCTAssertEqual(result.events.count, 1)
         let health = try XCTUnwrap(result.sources.first { $0.provider == .openCode })
+        XCTAssertEqual(health.state, .ready)
         XCTAssertEqual(health.unreadableFiles, 1)
         XCTAssertEqual(health.usageRecords, 1)
+    }
+
+    func testOnlyUnreadableDbReportsInaccessible() throws {
+        let root = try makeTemporaryDirectory()
+        try Data("not a sqlite database".utf8).write(to: root.appendingPathComponent("opencode.db"))
+
+        let result = OpenCodeScanner().scan(root: root, now: Date())
+
+        XCTAssertTrue(result.events.isEmpty)
+        let health = try XCTUnwrap(result.sources.first { $0.provider == .openCode })
+        XCTAssertEqual(health.state, .inaccessible)
+        XCTAssertEqual(health.scannedFiles, 1)
+        XCTAssertEqual(health.unreadableFiles, 1)
     }
 
     func testNullModelStillEmitsEventsWithUnknownModel() throws {

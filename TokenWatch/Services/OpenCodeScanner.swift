@@ -29,6 +29,9 @@ struct OpenCodeScanner: Sendable {
                 source.unreadableFiles += 1
             }
         }
+        if source.unreadableFiles == source.scannedFiles {
+            source.state = .inaccessible
+        }
 
         source.lastRefresh = now
         return ScanResult(events: events.sorted { $0.timestamp < $1.timestamp }, sources: [source])
@@ -42,11 +45,8 @@ struct OpenCodeScanner: Sendable {
         now: Date
     ) throws {
         let json = try runSqliteJson(at: url)
-        guard let data = json.data(using: .utf8) else {
-            source.unreadableFiles += 1
-            return
-        }
-        let rows = (try? JSONDecoder().decode([OpenCodeSessionRow].self, from: data)) ?? []
+        guard let data = json.data(using: .utf8) else { throw OpenCodeScannerError.unreadable }
+        let rows = try JSONDecoder().decode([OpenCodeSessionRow].self, from: data)
         for row in rows {
             let model = row.model.flatMap(decodeModel)
             if model == nil { source.malformedLines += 1 }
@@ -92,6 +92,8 @@ struct OpenCodeScanner: Sendable {
         process.arguments = [
             "-json",
             "-readonly",
+            "-cmd",
+            ".timeout 2000",
             url.path,
             """
             SELECT id, model, tokens_input, tokens_output, tokens_cache_read,
@@ -102,7 +104,7 @@ struct OpenCodeScanner: Sendable {
         ]
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = Pipe()
+        process.standardError = FileHandle.nullDevice
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()

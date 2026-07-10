@@ -12,8 +12,17 @@ final class TranscriptWatcher {
     }
 
     private var watches: [UsageProvider: Watch] = [:]
+    private var pendingChanges: [UsageProvider: Task<Void, Never>] = [:]
+    private let debounceDuration: Duration
+
+    init(debounceDuration: Duration = .milliseconds(750)) {
+        self.debounceDuration = debounceDuration
+    }
 
     deinit {
+        for task in pendingChanges.values {
+            task.cancel()
+        }
         for watch in watches.values {
             FSEventStreamStop(watch.stream)
             FSEventStreamInvalidate(watch.stream)
@@ -59,6 +68,7 @@ final class TranscriptWatcher {
     }
 
     func stop(for provider: UsageProvider) {
+        pendingChanges.removeValue(forKey: provider)?.cancel()
         guard let watch = watches.removeValue(forKey: provider) else { return }
         FSEventStreamStop(watch.stream)
         FSEventStreamInvalidate(watch.stream)
@@ -75,9 +85,15 @@ final class TranscriptWatcher {
         watches[provider] != nil
     }
 
-    @MainActor
-    fileprivate func dispatchChange(_ provider: UsageProvider) {
-        onChange?(provider)
+    func dispatchChange(_ provider: UsageProvider) {
+        pendingChanges.removeValue(forKey: provider)?.cancel()
+        let debounceDuration = debounceDuration
+        pendingChanges[provider] = Task { [weak self] in
+            try? await Task.sleep(for: debounceDuration)
+            guard !Task.isCancelled, let self else { return }
+            self.pendingChanges.removeValue(forKey: provider)
+            self.onChange?(provider)
+        }
     }
 
     private final class WatchInfoBox {

@@ -30,7 +30,6 @@ struct TokenWatchApp: App {
 
         WindowGroup("Token Watch", id: "dashboard") {
             DashboardView(store: usageStore)
-                .task { usageStore.start() }
         }
         .defaultSize(width: 980, height: 660)
 
