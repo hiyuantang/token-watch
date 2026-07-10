@@ -1,3 +1,4 @@
+import CoreServices
 import Foundation
 import XCTest
 @testable import TokenWatch
@@ -80,6 +81,75 @@ final class TranscriptWatcherTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(25))
         XCTAssertTrue(firedProviders.isEmpty)
         try await Task.sleep(for: .milliseconds(75))
+        XCTAssertEqual(firedProviders, [.openCode])
+    }
+
+    func testRelevanceFiltersUnrelatedFilesAndRecognizesScannerInputs() throws {
+        let root = try makeTemporaryDirectory()
+        let projects = root.appendingPathComponent("projects", isDirectory: true)
+        let sessions = root.appendingPathComponent("sessions", isDirectory: true)
+        let changedFile = UInt32(kFSEventStreamEventFlagItemModified | kFSEventStreamEventFlagItemIsFile)
+
+        XCTAssertFalse(
+            TranscriptWatcher.isRelevant(path: root.appendingPathComponent("history.jsonl").path, flags: changedFile, for: .claudeCode, providerRoot: root)
+        )
+        XCTAssertTrue(
+            TranscriptWatcher.isRelevant(path: projects.appendingPathComponent("session.jsonl").path, flags: changedFile, for: .claudeCode, providerRoot: root)
+        )
+        XCTAssertFalse(
+            TranscriptWatcher.isRelevant(path: root.appendingPathComponent("config.json").path, flags: changedFile, for: .codex, providerRoot: root)
+        )
+        XCTAssertTrue(
+            TranscriptWatcher.isRelevant(path: sessions.appendingPathComponent("session.jsonl").path, flags: changedFile, for: .codex, providerRoot: root)
+        )
+        XCTAssertFalse(
+            TranscriptWatcher.isRelevant(path: root.appendingPathComponent("activity.log").path, flags: changedFile, for: .openCode, providerRoot: root)
+        )
+        XCTAssertTrue(
+            TranscriptWatcher.isRelevant(path: root.appendingPathComponent("opencode.db-wal").path, flags: changedFile, for: .openCode, providerRoot: root)
+        )
+    }
+
+    func testRelevanceRecoversFromDroppedOrRootChangedEvents() throws {
+        let root = try makeTemporaryDirectory()
+
+        XCTAssertTrue(
+            TranscriptWatcher.isRelevant(
+                path: root.appendingPathComponent("unrelated.log").path,
+                flags: UInt32(kFSEventStreamEventFlagMustScanSubDirs),
+                for: .claudeCode,
+                providerRoot: root
+            )
+        )
+        XCTAssertTrue(
+            TranscriptWatcher.isRelevant(
+                path: root.appendingPathComponent("unrelated.log").path,
+                flags: UInt32(kFSEventStreamEventFlagRootChanged),
+                for: .openCode,
+                providerRoot: root
+            )
+        )
+    }
+
+    func testOpenCodeWatcherIgnoresNonDatabaseWrites() throws {
+        let root = try makeTemporaryDirectory()
+        let watcher = TranscriptWatcher(debounceDuration: .milliseconds(50))
+        var firedProviders: [UsageProvider] = []
+        watcher.onChange = { firedProviders.append($0) }
+        watcher.start(for: .openCode, directory: root)
+
+        try Data("noise".utf8).write(to: root.appendingPathComponent("activity.log"))
+        let quietExpectation = expectation(description: "unrelated write is ignored")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { quietExpectation.fulfill() }
+        wait(for: [quietExpectation], timeout: 2.0)
+        XCTAssertTrue(firedProviders.isEmpty)
+
+        try Data().write(to: root.appendingPathComponent("opencode.db-wal"))
+        let changeExpectation = expectation(description: "database write is observed")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { changeExpectation.fulfill() }
+        wait(for: [changeExpectation], timeout: 2.0)
+
+        watcher.stopAll()
         XCTAssertEqual(firedProviders, [.openCode])
     }
 
