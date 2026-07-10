@@ -143,4 +143,21 @@ final class PricingTests: XCTestCase {
         // missing providerID default to "reporting" so they aren't silently dropped.
         XCTAssertFalse(CacheReporting.nonReportingOpenCodeProviders.contains(""))
     }
+
+    func testCodexAutoReviewIsZeroRateAndPriced() {
+        let rate = Pricing.rate(for: "codex-auto-review")
+        XCTAssertNotNil(rate)
+        XCTAssertEqual(rate?.inputPerMTok, 0)
+        XCTAssertEqual(rate?.outputPerMTok, 0)
+        XCTAssertEqual(rate?.cachedInputPerMTok, 0)
+        // Sanity: must be free at any volume.
+        let usage = TokenUsage(input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheWrite: 1_000_000)
+        XCTAssertEqual(Pricing.cost(of: usage, at: rate!), 0)
+    }
+
+    func testCodexAutoReviewMatchingIsExact() {
+        // Substrings must NOT match (no fallback to a different model).
+        XCTAssertNil(Pricing.rate(for: "codex-auto-review-fork"))
+        XCTAssertNil(Pricing.rate(for: "codex"))
+    }
 }

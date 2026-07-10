@@ -29,9 +29,19 @@ struct Pricing {
     /// Identifiers are matched case-insensitively and as substrings against the
     /// model string recorded in a transcript, so `claude-opus-4-8`,
     /// `claude-opus-4-8-20260101`, and `anthropic/claude-opus-4-8` all resolve.
+    /// Set `exact` to require the model string equal the matcher — used for
+    /// internal routing labels like `codex-auto-review` that must not match a
+    /// longer model identifier.
     private struct Entry: Sendable {
         let matchers: [String]
         let rate: Rate
+        let exact: Bool
+
+        init(matchers: [String], rate: Rate, exact: Bool = false) {
+            self.matchers = matchers
+            self.rate = rate
+            self.exact = exact
+        }
     }
 
     /// Cost attributed to one event whose model has no catalog match.
@@ -131,22 +141,29 @@ struct Pricing {
         list.append(.init(matchers: ["mimo-v2.5-pro", "mimo-v2-5-pro"], rate: .init(inputPerMTok: 0.435, cachedInputPerMTok: 0.0036, outputPerMTok: 0.87)))
         list.append(.init(matchers: ["mimo-v2-pro", "mimo-v2-pro"], rate: .init(inputPerMTok: 0.435, cachedInputPerMTok: 0.0036, outputPerMTok: 0.87)))
 
+        // Codex internal routing label — not a billable model. Exact match only.
+        list.append(.init(matchers: ["codex-auto-review"], rate: .init(inputPerMTok: 0, cachedInputPerMTok: 0, outputPerMTok: 0), exact: true))
+
         return list
     }()
 
     /// Returns the rate for a model identifier, or `nil` if no catalog entry
-    /// matches. Matching is case-insensitive substring: the first entry whose
-    /// any matcher is contained in the lowercased model string wins, so more
-    /// specific matchers must be registered before looser ones (e.g. `gpt-5.2`
-    /// before `gpt-5`).
+    /// matches. Matching is case-insensitive substring by default; entries with
+    /// `exact: true` require the model string equal the matcher. The first
+    /// entry whose any matcher matches wins, so more specific matchers must be
+    /// registered before looser ones (e.g. `gpt-5.2` before `gpt-5`).
     static func rate(for model: String) -> Rate? {
         let needle = model.lowercased()
-        for entry in entries {
-            if entry.matchers.contains(where: { needle.contains($0) }) {
-                return entry.rate
-            }
+        for entry in entries where matches(entry, needle: needle) {
+            return entry.rate
         }
         return nil
+    }
+
+    private static func matches(_ entry: Entry, needle: String) -> Bool {
+        entry.matchers.contains { matcher in
+            entry.exact ? needle == matcher : needle.contains(matcher)
+        }
     }
 
     /// USD cost for a single token-usage record at the given rate. Charges
