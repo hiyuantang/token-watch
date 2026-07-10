@@ -24,6 +24,7 @@
 		A10000000000000000000017 /* OpenCodeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* OpenCodeScanner.swift */; };
 		A10000000000000000000018 /* ProviderPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* ProviderPaths.swift */; };
 		A10000000000000000000021 /* OpenCodeScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* OpenCodeScannerTests.swift */; };
+		A10000000000000000000020 /* TranscriptWatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* TranscriptWatcherTests.swift */; };
 
 		A20000000000000000000001 /* TokenWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenWatchApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
@@ -47,10 +48,11 @@
 		A20000000000000000000020 /* OpenCodeScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeScanner.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* ProviderPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderPaths.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* OpenCodeScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeScannerTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* TranscriptWatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptWatcherTests.swift; sourceTree = "<group>"; };
 
 		A30000000000000000000001 = {isa = PBXGroup; children = (A30000000000000000000002 /* TokenWatch */, A30000000000000000000003 /* TokenWatchTests */, A30000000000000000000004 /* Products */); sourceTree = "<group>"; };
 		A30000000000000000000002 /* TokenWatch */ = {isa = PBXGroup; children = (A30000000000000000000005 /* App */, A30000000000000000000006 /* Models */, A30000000000000000000007 /* Services */, A30000000000000000000008 /* Stores */, A30000000000000000000009 /* Views */, A30000000000000000000010 /* Support */, A20000000000000000000018 /* Assets.xcassets */, A20000000000000000000015 /* TokenWatch.entitlements */); path = TokenWatch; sourceTree = "<group>"; };
-		A30000000000000000000003 /* TokenWatchTests */ = {isa = PBXGroup; children = (A20000000000000000000013 /* UsageScannerTests.swift */, A20000000000000000000014 /* UsageSnapshotTests.swift */, A20000000000000000000024 /* OpenCodeScannerTests.swift */); path = TokenWatchTests; sourceTree = "<group>"; };
+		A30000000000000000000003 /* TokenWatchTests */ = {isa = PBXGroup; children = (A20000000000000000000013 /* UsageScannerTests.swift */, A20000000000000000000014 /* UsageSnapshotTests.swift */, A20000000000000000000024 /* OpenCodeScannerTests.swift */, A20000000000000000000023 /* TranscriptWatcherTests.swift */); path = TokenWatchTests; sourceTree = "<group>"; };
 		A30000000000000000000004 /* Products */ = {isa = PBXGroup; children = (A20000000000000000000016 /* TokenWatch.app */, A20000000000000000000017 /* TokenWatchTests.xctest */); name = Products; sourceTree = "<group>"; };
 		A30000000000000000000005 /* App */ = {isa = PBXGroup; children = (A20000000000000000000001 /* TokenWatchApp.swift */); path = App; sourceTree = "<group>"; };
 		A30000000000000000000006 /* Models */ = {isa = PBXGroup; children = (A20000000000000000000002 /* UsageModels.swift */); path = Models; sourceTree = "<group>"; };
@@ -69,7 +71,7 @@
 		A60000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, A10000000000000000000009, A10000000000000000000010, A10000000000000000000011, A10000000000000000000012, A10000000000000000000016, A10000000000000000000017, A10000000000000000000018); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000015 /* Assets.xcassets in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
-		A60000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000013, A10000000000000000000014, A10000000000000000000021); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000013, A10000000000000000000014, A10000000000000000000021, A10000000000000000000020); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000005 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A60000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 
