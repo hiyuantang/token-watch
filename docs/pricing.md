@@ -242,3 +242,25 @@ demand from in-memory events.
 These rates are a convenience estimate from public pricing pages. Actual bills
 depend on tier, region, batch usage, discounts, prompt-caching behavior, and
 provider-side rounding. Token Watch is not affiliated with any provider.
+
+## Cache reporting
+
+Not every provider returns cache-read/cache-write tokens in its usage object.
+Token Watch excludes these from the cache-read-share denominator so the
+percentage reflects only providers that actually report cache. Update
+`CacheReporting.nonReportingOpenCodeProviders` in `TokenWatch/Support/Pricing.swift`
+and add a row here when this list changes.
+
+| OpenCode `providerID` | Status |
+|---|---|
+| `ollama-cloud` | does not report cache (e.g. glm-5.2 always returns 0) |
+
+## Internal labels
+
+Some model strings are routing labels, not billable models. These are priced
+at $0 in the catalog so Token Watch treats them as priced (no "unpriced" gap
+in the cost estimate).
+
+| Model | Rate |
+|---|---|
+| `codex-auto-review` | $0 in / $0 out / $0 cache |
