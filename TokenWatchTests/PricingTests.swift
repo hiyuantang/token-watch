@@ -160,4 +160,30 @@ final class PricingTests: XCTestCase {
         XCTAssertNil(Pricing.rate(for: "codex-auto-review-fork"))
         XCTAssertNil(Pricing.rate(for: "codex"))
     }
+
+    func testDisplayNameForKnownModels() {
+        XCTAssertEqual(Pricing.displayName(for: "claude-opus-4-8"), "Claude Opus 4.8")
+        XCTAssertEqual(Pricing.displayName(for: "gpt-5.6-sol"), "GPT 5.6 Sol")
+        XCTAssertEqual(Pricing.displayName(for: "glm-5.2"), "GLM 5.2")
+        XCTAssertEqual(Pricing.displayName(for: "kimi-k2.7-code"), "Kimi K2.7 Code")
+        XCTAssertEqual(Pricing.displayName(for: "deepseek-v4-pro"), "DeepSeek V4 Pro")
+        XCTAssertEqual(Pricing.displayName(for: "minimax-m3"), "MiniMax M3")
+    }
+
+    func testDisplayNameForUnknownModelIsPrettified() {
+        XCTAssertEqual(Pricing.displayName(for: "some-new-model-xyz"), "Some New Model Xyz")
+    }
+
+    func testDisplayNameForCodexAutoReviewIsExact() {
+        XCTAssertEqual(Pricing.displayName(for: "codex-auto-review"), "Codex Auto Review")
+    }
+
+    func testDisplayNameOrderingGpt52NotGpt5() {
+        // gpt-5.2 must resolve to "GPT 5.2", not "GPT 5" (bare gpt-5 is last).
+        XCTAssertEqual(Pricing.displayName(for: "gpt-5.2"), "GPT 5.2")
+    }
+
+    func testDisplayNamePrettifierHandlesUnderscoreSeparator() {
+        XCTAssertEqual(Pricing.displayName(for: "acme_llm_2.0"), "Acme Llm 2.0")
+    }
 }

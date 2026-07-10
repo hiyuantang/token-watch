@@ -162,6 +162,17 @@ struct Pricing {
         return nil
     }
 
+    /// Human-friendly name for a model identifier. Matches the same ordered
+    /// `entries` walk as `rate(for:)`, so the name is consistent with the
+    /// pricing match. Unknown models fall back to `ModelNamePrettifier`.
+    static func displayName(for model: String) -> String {
+        let needle = model.lowercased()
+        for entry in entries where matches(entry, needle: needle) {
+            return entry.displayName
+        }
+        return ModelNamePrettifier.prettify(model)
+    }
+
     private static func matches(_ entry: Entry, needle: String) -> Bool {
         entry.matchers.contains { matcher in
             entry.exact ? needle == matcher : needle.contains(matcher)
@@ -179,6 +190,17 @@ struct Pricing {
         let outputCost = Double(usage.output) * rate.outputPerMTok / mtok
         let reasoningCost = Double(usage.reasoningOutput) * rate.outputPerMTok / mtok
         return inputCost + cacheReadCost + cacheWriteCost + outputCost + reasoningCost
+    }
+}
+
+/// Best-effort prettifier for model identifiers with no catalog match. Splits
+/// on `-`/`_`, title-cases each token, and joins with spaces. Known models
+/// never hit this path — they have explicit `displayName`s in `Pricing`.
+enum ModelNamePrettifier {
+    static func prettify(_ raw: String) -> String {
+        raw.split(whereSeparator: { $0 == "-" || $0 == "_" })
+            .map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }
+            .joined(separator: " ")
     }
 }
 
