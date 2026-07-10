@@ -19,7 +19,7 @@ struct ModelsView: View {
                         ? 0
                         : Double(model.usage.recordedTotal) / Double(totalRecorded)
                     HStack(spacing: 12) {
-                        Image(systemName: model.provider == .claudeCode ? "sparkles" : "terminal")
+                        Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
                             .foregroundStyle(.secondary)
                             .frame(width: 20)
                         VStack(alignment: .leading, spacing: 3) {

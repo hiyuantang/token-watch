@@ -35,7 +35,7 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertEqual(calendar.startOfDay(for: snapshot.timeline[0].date), calendar.startOfDay(for: today.timestamp))
     }
 
-    func testEmptySnapshotProvidesBothProviders() {
+    func testEmptySnapshotProvidesAllProviders() {
         let snapshot = UsageAggregator.snapshot(
             events: [],
             range: .month,
@@ -43,7 +43,7 @@ final class UsageSnapshotTests: XCTestCase {
             now: Date()
         )
 
-        XCTAssertEqual(snapshot.providers.count, 2)
+        XCTAssertEqual(snapshot.providers.count, 3)
         XCTAssertEqual(snapshot.usage.recordedTotal, 0)
         XCTAssertTrue(snapshot.models.isEmpty)
     }

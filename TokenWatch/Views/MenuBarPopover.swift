@@ -93,7 +93,7 @@ struct MenuBarPopover: View {
                             ? 0
                             : Double(model.usage.recordedTotal) / Double(totalRecorded)
                         HStack(spacing: 8) {
-                            Image(systemName: model.provider == .claudeCode ? "sparkles" : "terminal")
+                            Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
                                 .foregroundStyle(.secondary)
                                 .frame(width: 14)
                             Text(model.model)
