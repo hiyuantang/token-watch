@@ -6,10 +6,10 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Label(
-            "Token Watch \(TokenFormatting.compact(snapshot.usage.recordedTotal))",
+            "Token Watch \(TokenFormatting.compact(snapshot.usage.recordedTotal)) · \(TokenFormatting.usd(snapshot.cost.totalUSD))",
             systemImage: "chart.bar.fill"
         )
-        .accessibilityLabel("Token Watch, today: \(TokenFormatting.full(snapshot.usage.recordedTotal)) recorded tokens")
+        .accessibilityLabel("Token Watch, today: \(TokenFormatting.full(snapshot.usage.recordedTotal)) recorded tokens, estimated \(TokenFormatting.usd(snapshot.cost.totalUSD))")
     }
 }
 
@@ -105,6 +105,22 @@ struct MenuBarPopover: View {
                     .foregroundStyle(.secondary)
             }
 
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Estimated cost")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(TokenFormatting.usd(snapshot.cost.totalUSD))
+                    .font(.callout.weight(.semibold))
+                    .monospacedDigit()
+                if snapshot.cost.unpricedModelCount > 0 {
+                    Text("\(snapshot.cost.unpricedModelCount) unpriced")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .help("\(snapshot.cost.unpricedModelCount) model(s) have no published price in Token Watch's local catalog. Their tokens are counted but contribute $0 to this estimate.")
+                }
+            }
+
             VStack(spacing: 10) {
                 ForEach(snapshot.providers) { provider in
                     HStack {
@@ -156,6 +172,16 @@ struct MenuBarPopover: View {
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                                 .frame(width: 40, alignment: .trailing)
+                        }
+                        if model.priced {
+                            HStack(spacing: 8) {
+                                Text("").frame(width: 16)
+                                Text(TokenFormatting.usd(model.costUSD))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                Spacer()
+                            }
                         }
                     }
                 }

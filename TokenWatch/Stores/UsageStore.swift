@@ -102,10 +102,20 @@ enum UsageAggregator {
 
         var usage = TokenUsage.zero
         var providerUsage = Dictionary(uniqueKeysWithValues: UsageProvider.allCases.map { ($0, TokenUsage.zero) })
+        var providerCost = Dictionary(uniqueKeysWithValues: UsageProvider.allCases.map { ($0, 0.0) })
         var modelUsage: [ModelKey: TokenUsage] = [:]
+        var modelCost: [ModelKey: Double] = [:]
+        var modelPriced: [ModelKey: Bool] = [:]
+        var unpricedModels = Set<ModelKey>()
         var sessionTokens = Set<UUID>()
         var timelineTotals: [TimelineKey: Int] = [:]
 
+        var costInput = 0.0
+        var costOutput = 0.0
+        var costCacheRead = 0.0
+        var costCacheWrite = 0.0
+
+        let mtok = 1_000_000.0
         for event in selectedEvents {
             usage = usage + event.usage
             providerUsage[event.provider, default: .zero] = providerUsage[event.provider, default: .zero] + event.usage
@@ -116,6 +126,28 @@ enum UsageAggregator {
             let date = bucketDate(for: event.timestamp, range: range, calendar: calendar)
             let timelineKey = TimelineKey(date: date, provider: event.provider)
             timelineTotals[timelineKey, default: 0] += event.usage.recordedTotal
+
+            // Cost estimate — same single pass, no second loop. Unknown models
+            // contribute $0 and are tracked in `unpricedModels` so the UI can
+            // surface the gap rather than silently understating cost.
+            if let rate = Pricing.rate(for: event.model) {
+                modelPriced[modelKey] = true
+                let inputUSD = Double(event.usage.input) * rate.inputPerMTok / mtok
+                let cacheReadUSD = Double(event.usage.cacheRead) * rate.cachedInputPerMTok / mtok
+                let cacheWriteUSD = Double(event.usage.cacheWrite) * rate.inputPerMTok / mtok
+                let outputUSD = Double(event.usage.output) * rate.outputPerMTok / mtok
+                let reasoningUSD = Double(event.usage.reasoningOutput) * rate.outputPerMTok / mtok
+                let eventCost = inputUSD + cacheReadUSD + cacheWriteUSD + outputUSD + reasoningUSD
+                costInput += inputUSD
+                costCacheRead += cacheReadUSD
+                costCacheWrite += cacheWriteUSD
+                costOutput += outputUSD + reasoningUSD
+                providerCost[event.provider, default: 0] += eventCost
+                modelCost[modelKey, default: 0] += eventCost
+            } else {
+                modelPriced[modelKey] = false
+                unpricedModels.insert(modelKey)
+            }
         }
 
         var timeline: [TimelineBucket] = []
@@ -128,21 +160,39 @@ enum UsageAggregator {
 
         let cacheDenominator = usage.input + usage.cacheRead
         let cacheReadShare = cacheDenominator == 0 ? 0 : Double(usage.cacheRead) / Double(cacheDenominator)
-        let models = modelUsage.map {
-            ModelSummary(provider: $0.key.provider, model: $0.key.model, usage: $0.value)
+        let models = modelUsage.map { key, value in
+            ModelSummary(
+                provider: key.provider,
+                model: key.model,
+                usage: value,
+                costUSD: modelCost[key, default: 0],
+                priced: modelPriced[key, default: false]
+            )
         }.sorted { $0.usage.recordedTotal > $1.usage.recordedTotal }
+
+        let cost = CostEstimate(
+            totalUSD: costInput + costOutput + costCacheRead + costCacheWrite,
+            inputUSD: costInput,
+            outputUSD: costOutput,
+            cacheReadUSD: costCacheRead,
+            cacheWriteUSD: costCacheWrite,
+            unpricedModelCount: unpricedModels.count
+        )
 
         return UsageSnapshot(
             range: range,
             usage: usage,
-            providers: UsageProvider.allCases.map { ProviderSummary(provider: $0, usage: providerUsage[$0, default: .zero]) },
+            providers: UsageProvider.allCases.map {
+                ProviderSummary(provider: $0, usage: providerUsage[$0, default: .zero], costUSD: providerCost[$0, default: 0])
+            },
             models: models,
             timeline: timeline,
             sessionCount: sessionTokens.count,
             cacheReadShare: cacheReadShare,
             currentStreak: currentStreak(events: selectedEvents, now: now, calendar: calendar),
             peakActivityLabel: peakActivityLabel(timeline: timeline, range: range),
-            sources: sources
+            sources: sources,
+            cost: cost
         )
     }
 

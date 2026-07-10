@@ -39,9 +39,21 @@ struct ModelsView: View {
                                     .foregroundStyle(.secondary)
                                     .monospacedDigit()
                             }
-                            Text("In \(TokenFormatting.compact(model.usage.input)) · Out \(TokenFormatting.compact(model.usage.output))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                            HStack(spacing: 4) {
+                                if model.priced {
+                                    Text(TokenFormatting.usd(model.costUSD))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                } else {
+                                    Text("unpriced")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("· In \(TokenFormatting.compact(model.usage.input)) · Out \(TokenFormatting.compact(model.usage.output))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .padding(.vertical, 4)

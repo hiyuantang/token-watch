@@ -81,4 +81,58 @@ final class UsageSnapshotTests: XCTestCase {
             XCTAssertNotNil(day)
         }
     }
+
+    func testCostEstimateSumsPerEventAndReportsUnpricedModels() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        // Known-priced: claude-opus-4-8 at $5 in / $25 out / $0.50 cache read.
+        let priced = UsageEvent(
+            id: UUID(),
+            provider: .claudeCode,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-09T09:00:00Z")!,
+            model: "claude-opus-4-8",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0)
+        )
+        // Unknown model: contributes $0 and is counted as unpriced.
+        let unpriced = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-09T10:00:00Z")!,
+            model: "internal-experimental-v0",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 500_000, output: 500_000)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(events: [priced, unpriced], range: .day, sources: sources, now: now)
+
+        XCTAssertEqual(snapshot.cost.totalUSD, 5.0, accuracy: 0.0001)
+        XCTAssertEqual(snapshot.cost.inputUSD, 5.0, accuracy: 0.0001)
+        XCTAssertEqual(snapshot.cost.unpricedModelCount, 1)
+        // Per-provider cost: Claude $5, Codex $0 (unpriced model).
+        let claude = snapshot.providers.first { $0.provider == .claudeCode }!
+        let codex = snapshot.providers.first { $0.provider == .codex }!
+        XCTAssertEqual(claude.costUSD, 5.0, accuracy: 0.0001)
+        XCTAssertEqual(codex.costUSD, 0.0, accuracy: 0.0001)
+        // Per-model: priced model marked priced, unpriced model marked not.
+        let pricedModel = snapshot.models.first { $0.model == "claude-opus-4-8" }!
+        let unpricedModel = snapshot.models.first { $0.model == "internal-experimental-v0" }!
+        XCTAssertTrue(pricedModel.priced)
+        XCTAssertFalse(unpricedModel.priced)
+        XCTAssertEqual(pricedModel.costUSD, 5.0, accuracy: 0.0001)
+    }
+
+    func testEmptySnapshotCostIsZero() {
+        let snapshot = UsageAggregator.snapshot(
+            events: [],
+            range: .month,
+            sources: UsageProvider.allCases.map(SourceHealth.unconfigured),
+            now: Date()
+        )
+        XCTAssertEqual(snapshot.cost.totalUSD, 0)
+        XCTAssertEqual(snapshot.cost.unpricedModelCount, 0)
+        for provider in snapshot.providers {
+            XCTAssertEqual(provider.costUSD, 0)
+        }
+    }
 }

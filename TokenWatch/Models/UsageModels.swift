@@ -147,6 +147,7 @@ struct SourceHealth: Identifiable, Sendable {
 struct ProviderSummary: Identifiable, Sendable {
     let provider: UsageProvider
     let usage: TokenUsage
+    let costUSD: Double
 
     var id: UsageProvider { provider }
 }
@@ -155,6 +156,8 @@ struct ModelSummary: Identifiable, Sendable {
     let provider: UsageProvider
     let model: String
     let usage: TokenUsage
+    let costUSD: Double
+    let priced: Bool
 
     var id: String { "\(provider.rawValue)-\(model)" }
 }
@@ -178,19 +181,49 @@ struct UsageSnapshot: Sendable {
     let currentStreak: Int
     let peakActivityLabel: String
     let sources: [SourceHealth]
+    let cost: CostEstimate
 
     static func empty(range: UsageRange, sources: [SourceHealth]) -> UsageSnapshot {
         UsageSnapshot(
             range: range,
             usage: .zero,
-            providers: UsageProvider.allCases.map { ProviderSummary(provider: $0, usage: .zero) },
+            providers: UsageProvider.allCases.map { ProviderSummary(provider: $0, usage: .zero, costUSD: 0) },
             models: [],
             timeline: [],
             sessionCount: 0,
             cacheReadShare: 0,
             currentStreak: 0,
             peakActivityLabel: "No activity yet",
-            sources: sources
+            sources: sources,
+            cost: CostEstimate.zero
+        )
+    }
+}
+
+/// Illustrative USD cost derived from observed token totals and the static
+/// `Pricing` catalog. This is a local estimate, not an invoice: it ignores
+/// batch discounts, peak/off-peak tiers, fast mode, data-residency multipliers,
+/// and provider-specific write premiums. Models with no catalog match
+/// contribute $0 and are reported via `unpricedModelCount` so the UI can surface
+/// the gap instead of silently understating cost.
+struct CostEstimate: Sendable {
+    let totalUSD: Double
+    let inputUSD: Double
+    let outputUSD: Double
+    let cacheReadUSD: Double
+    let cacheWriteUSD: Double
+    let unpricedModelCount: Int
+
+    static let zero = CostEstimate(totalUSD: 0, inputUSD: 0, outputUSD: 0, cacheReadUSD: 0, cacheWriteUSD: 0, unpricedModelCount: 0)
+
+    static func + (lhs: CostEstimate, rhs: CostEstimate) -> CostEstimate {
+        CostEstimate(
+            totalUSD: lhs.totalUSD + rhs.totalUSD,
+            inputUSD: lhs.inputUSD + rhs.inputUSD,
+            outputUSD: lhs.outputUSD + rhs.outputUSD,
+            cacheReadUSD: lhs.cacheReadUSD + rhs.cacheReadUSD,
+            cacheWriteUSD: lhs.cacheWriteUSD + rhs.cacheWriteUSD,
+            unpricedModelCount: lhs.unpricedModelCount + rhs.unpricedModelCount
         )
     }
 }

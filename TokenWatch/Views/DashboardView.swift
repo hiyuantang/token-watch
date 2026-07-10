@@ -98,6 +98,15 @@ private struct OverviewView: View {
                             tint: .blue
                         )
                         MetricCard(
+                            title: "Estimated cost",
+                            value: TokenFormatting.usd(snapshot.cost.totalUSD),
+                            detail: snapshot.cost.unpricedModelCount > 0
+                                ? "\(snapshot.cost.unpricedModelCount) model(s) unpriced"
+                                : "Local estimate from published rates",
+                            symbol: "dollarsign.circle.fill",
+                            tint: .green
+                        )
+                        MetricCard(
                             title: "Sessions",
                             value: TokenFormatting.full(snapshot.sessionCount),
                             detail: "Opaque local session count",
@@ -152,10 +161,18 @@ private struct OverviewView: View {
                             HStack {
                                 Label(provider.provider.displayName, systemImage: providerSymbol(provider.provider))
                                 Spacer()
-                                Text(TokenFormatting.compact(provider.usage.recordedTotal))
-                                    .monospacedDigit()
-                                Text("tokens")
-                                    .foregroundStyle(.secondary)
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text(TokenFormatting.compact(provider.usage.recordedTotal))
+                                            .monospacedDigit()
+                                        Text("tokens")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text(TokenFormatting.usd(provider.costUSD))
+                                        .font(.caption)
+                                        .monospacedDigit()
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -163,7 +180,7 @@ private struct OverviewView: View {
                 }
 
                 Label(
-                    "Recorded tokens are local transcript metadata, not an official quota, invoice, or provider usage balance.",
+                    "Estimated cost is a local illustration from published API rates and observed token totals — not an official invoice, quota, or account balance. Batch, peak, fast-mode, and data-residency pricing are not modeled.",
                     systemImage: "info.circle"
                 )
                 .font(.footnote)
