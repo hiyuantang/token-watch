@@ -1,4 +1,5 @@
 import AppKit
+import Charts
 import SwiftUI
 
 struct MenuBarLabel: View {
@@ -64,6 +65,7 @@ struct MenuBarPopover: View {
     @ObservedObject var store: UsageStore
     @Environment(\.openWindow) private var openWindow
     @State private var range: UsageRange = .today
+    @State private var breakdownMetric: PopoverBreakdownMetric = .tokens
 
     private var snapshot: UsageSnapshot { store.snapshot(for: range) }
 
@@ -88,6 +90,7 @@ struct MenuBarPopover: View {
                 }
             }
             .pickerStyle(.segmented)
+            .tint(Color(white: 0.28))
             .labelsHidden()
             .accessibilityLabel("Date range")
 
@@ -102,39 +105,10 @@ struct MenuBarPopover: View {
                     .monospacedDigit()
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Estimated cost")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(TokenFormatting.usd(snapshot.cost.totalUSD))
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                if snapshot.cost.unpricedModelCount > 0 {
-                    Text("\(snapshot.cost.unpricedModelCount) unpriced")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .help("\(snapshot.cost.unpricedModelCount) model(s) have no published price in Token Watch's local catalog. Their tokens are counted but contribute $0 to this estimate.")
-                }
-            }
-
-            VStack(spacing: 10) {
-                ForEach(snapshot.providers) { provider in
-                    HStack(spacing: 8) {
-                        Image(provider.provider.logoName)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 16, height: 16)
-                        Text(provider.provider.displayName)
-                            .foregroundStyle(provider.provider.tint)
-                        Spacer()
-                        Text(TokenFormatting.compact(provider.usage.recordedTotal))
-                            .monospacedDigit()
-                            .foregroundStyle(provider.provider.tint)
-                    }
-                    .font(.callout)
-                }
-            }
+            PopoverBreakdown(
+                snapshot: snapshot,
+                metric: $breakdownMetric
+            )
 
             Divider()
 
@@ -205,6 +179,159 @@ struct MenuBarPopover: View {
         f.numberStyle = .decimal
         return f
     }()
+}
+
+private enum PopoverBreakdownMetric: String, CaseIterable, Identifiable {
+    case tokens = "Token"
+    case price = "Price"
+
+    var id: Self { self }
+
+    func value(for provider: ProviderSummary) -> Double {
+        switch self {
+        case .tokens: Double(provider.usage.recordedTotal)
+        case .price: provider.costUSD
+        }
+    }
+
+    func formattedValue(for provider: ProviderSummary) -> String {
+        switch self {
+        case .tokens: TokenFormatting.compact(provider.usage.recordedTotal)
+        case .price: TokenFormatting.usd(provider.costUSD)
+        }
+    }
+
+    func formattedTotal(for snapshot: UsageSnapshot) -> String {
+        switch self {
+        case .tokens: TokenFormatting.compact(snapshot.usage.recordedTotal)
+        case .price: TokenFormatting.usd(snapshot.cost.totalUSD)
+        }
+    }
+}
+
+private struct PopoverBreakdown: View {
+    let snapshot: UsageSnapshot
+    @Binding var metric: PopoverBreakdownMetric
+
+    private var visibleProviders: [ProviderSummary] {
+        snapshot.providers.filter { metric.value(for: $0) > 0 }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Breakdown", selection: $metric) {
+                ForEach(PopoverBreakdownMetric.allCases) { metric in
+                    Text(metric.rawValue).tag(metric)
+                }
+            }
+            .pickerStyle(.segmented)
+            .tint(Color(white: 0.28))
+            .labelsHidden()
+            .frame(width: 180)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .accessibilityLabel("Breakdown metric")
+
+            HStack(spacing: 24) {
+                ProviderRing(snapshot: snapshot, metric: metric)
+                    .frame(width: 124, height: 124)
+
+                VStack(spacing: 12) {
+                    ForEach(visibleProviders) { provider in
+                        HStack(spacing: 8) {
+                            Image(provider.provider.logoName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
+                            Text(provider.provider.displayName)
+                                .foregroundStyle(provider.provider.tint)
+                            Spacer()
+                            Text(metric.formattedValue(for: provider))
+                                .monospacedDigit()
+                                .foregroundStyle(provider.provider.tint)
+                                .contentTransition(.numericText())
+                        }
+                        .font(.callout)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .animation(.easeInOut(duration: 0.45), value: metric)
+            }
+
+            if metric == .price, snapshot.cost.unpricedModelCount > 0 {
+                Text("\(snapshot.cost.unpricedModelCount) unpriced")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .help("\(snapshot.cost.unpricedModelCount) model(s) have no published price in Token Watch's local catalog. Their tokens are counted but contribute $0 to this estimate.")
+            }
+        }
+    }
+}
+
+private struct ProviderRing: View {
+    let snapshot: UsageSnapshot
+    let metric: PopoverBreakdownMetric
+
+    private struct Slice: Identifiable, Equatable {
+        let provider: UsageProvider
+        let share: Double
+
+        var id: UsageProvider { provider }
+    }
+
+    private var slices: [Slice] {
+        let values = snapshot.providers.map { ($0.provider, metric.value(for: $0)) }
+        let total = values.reduce(0) { $0 + $1.1 }
+
+        return values.map { provider, value in
+            let share = total > 0 ? value / total : 0
+            return Slice(provider: provider, share: share)
+        }
+    }
+
+    private var visibleSlices: [Slice] {
+        slices.filter { $0.share > 0 }
+    }
+
+    private var accessibilityValue: String {
+        slices
+            .filter { $0.share > 0 }
+            .map { "\($0.provider.displayName) \(TokenFormatting.percentage($0.share))" }
+            .joined(separator: ", ")
+    }
+
+    var body: some View {
+        ZStack {
+            if visibleSlices.isEmpty {
+                Circle()
+                    .stroke(.quaternary, lineWidth: 16)
+            } else {
+                Chart(visibleSlices) { slice in
+                    SectorMark(
+                        angle: .value("Share", slice.share),
+                        innerRadius: .ratio(0.72),
+                        angularInset: visibleSlices.count > 1 ? 2.5 : 0
+                    )
+                    .cornerRadius(visibleSlices.count > 1 ? 3 : 0)
+                    .foregroundStyle(slice.provider.tint)
+                }
+                .chartLegend(.hidden)
+            }
+
+            Text(metric.formattedTotal(for: snapshot))
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .minimumScaleFactor(0.65)
+                .lineLimit(1)
+                .contentTransition(.numericText())
+                .padding(22)
+        }
+        .animation(.easeInOut(duration: 0.45), value: slices)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(metric.rawValue) share by provider")
+        .accessibilityValue(accessibilityValue)
+    }
 }
 
 private struct PopoverStat: View {

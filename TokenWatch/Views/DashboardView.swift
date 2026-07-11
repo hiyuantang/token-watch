@@ -54,6 +54,7 @@ struct DashboardView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(Color(white: 0.28))
                 .labelsHidden()
                 .frame(width: 300)
             }
