@@ -153,6 +153,31 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertEqual(pricedModel.costUSD, 5.0, accuracy: 0.0001)
     }
 
+    func testCodexAutoReviewIsNotPricedAndNotCountedAsUnpriced() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        // codex-auto-review is a known internal routing label with a zero rate.
+        // It should render as "-" (priced == false) but NOT inflate the
+        // unpriced-model count, since it is a known label rather than a gap.
+        let autoReview = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-09T10:00:00Z")!,
+            model: "codex-auto-review",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 100, output: 50)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(events: [autoReview], range: .day, sources: sources, now: now)
+
+        XCTAssertEqual(snapshot.cost.totalUSD, 0)
+        XCTAssertEqual(snapshot.cost.unpricedModelCount, 0)
+        let model = snapshot.models.first { $0.model == "codex-auto-review" }
+        XCTAssertNotNil(model)
+        XCTAssertFalse(model?.priced ?? true)
+        XCTAssertEqual(model?.costUSD, 0)
+    }
+
     func testEmptySnapshotCostIsZero() {
         let snapshot = UsageAggregator.snapshot(
             events: [],

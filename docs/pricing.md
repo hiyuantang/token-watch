@@ -270,10 +270,12 @@ and add a row here when this list changes.
 
 ## Internal labels
 
-Some model strings are routing labels, not billable models. These are priced
-at $0 in the catalog so Token Watch treats them as priced (no "unpriced" gap
-in the cost estimate).
+Some model strings are routing labels, not billable models. These have a
+catalog entry with a zero rate so their display name resolves and exact-match
+is honored, but they are marked `notBillable` — Token Watch shows "-" for them
+in the UI (rather than a misleading "$0") and does not count them as unpriced
+(they are known labels, not a gap in the catalog).
 
-| Model | Rate |
-|---|---|
-| `codex-auto-review` | $0 in / $0 out / $0 cache |
+| Model | Rate | UI |
+|---|---|---|
+| `codex-auto-review` | $0 in / $0 out / $0 cache | "-" (not billable) |

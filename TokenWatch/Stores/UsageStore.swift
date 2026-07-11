@@ -310,9 +310,12 @@ enum UsageAggregator {
 
             // Cost estimate — same single pass, no second loop. Unknown models
             // contribute $0 and are tracked in `unpricedModels` so the UI can
-            // surface the gap rather than silently understating cost.
+            // surface the gap rather than silently understating cost. Known
+            // non-billable labels (e.g. `codex-auto-review`) resolve to a zero
+            // rate but are marked not priced so the UI shows "-" rather than a
+            // misleading "$0"; they are NOT counted as unpriced (they are known).
             if let rate = Pricing.rate(for: event.model) {
-                modelPriced[modelKey] = true
+                modelPriced[modelKey] = Pricing.isBillable(for: event.model)
                 let inputUSD = Double(event.usage.input) * rate.inputPerMTok / mtok
                 let cacheReadUSD = Double(event.usage.cacheRead) * rate.cachedInputPerMTok / mtok
                 let cacheWrite5mUSD = Double(event.usage.cacheWrite5m) * rate.cacheWrite5mPerMTok / mtok

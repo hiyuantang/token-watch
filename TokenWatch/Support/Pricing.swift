@@ -41,12 +41,14 @@ struct Pricing {
         let rate: Rate
         let displayName: String
         let exact: Bool
+        let notBillable: Bool
 
-        init(matchers: [String], rate: Rate, displayName: String, exact: Bool = false) {
+        init(matchers: [String], rate: Rate, displayName: String, exact: Bool = false, notBillable: Bool = false) {
             self.matchers = matchers
             self.rate = rate
             self.displayName = displayName
             self.exact = exact
+            self.notBillable = notBillable
         }
     }
 
@@ -149,7 +151,10 @@ struct Pricing {
         list.append(.init(matchers: ["mimo-v2-pro", "mimo-v2-pro"], rate: .init(inputPerMTok: 0.435, cachedInputPerMTok: 0.0036, outputPerMTok: 0.87), displayName: "MiMo V2 Pro"))
 
         // Codex internal routing label — not a billable model. Exact match only.
-        list.append(.init(matchers: ["codex-auto-review"], rate: .init(inputPerMTok: 0, cachedInputPerMTok: 0, outputPerMTok: 0), displayName: "Codex Auto Review", exact: true))
+        // `notBillable` keeps `Pricing.rate` non-nil (so the displayName still
+        // resolves and exact-match is honored) while the snapshot reports it as
+        // not priced — the UI shows "-" instead of a misleading "$0".
+        list.append(.init(matchers: ["codex-auto-review"], rate: .init(inputPerMTok: 0, cachedInputPerMTok: 0, outputPerMTok: 0), displayName: "Codex Auto Review", exact: true, notBillable: true))
 
         return list
     }()
@@ -176,6 +181,20 @@ struct Pricing {
             return entry.displayName
         }
         return ModelNamePrettifier.prettify(model)
+    }
+
+    /// True when a model has a catalog entry that represents real billable
+    /// usage. Returns `false` for both unknown models (no entry) and known
+    /// non-billable routing labels like `codex-auto-review` that carry a
+    /// zero rate only to preserve display-name and exact-match behavior.
+    /// Callers that surface price vs. "-" should use this rather than
+    /// `rate(for:) != nil`, so a known-free label shows "-" rather than "$0".
+    static func isBillable(for model: String) -> Bool {
+        let needle = model.lowercased()
+        for entry in entries where matches(entry, needle: needle) {
+            return !entry.notBillable
+        }
+        return false
     }
 
     private static func matches(_ entry: Entry, needle: String) -> Bool {

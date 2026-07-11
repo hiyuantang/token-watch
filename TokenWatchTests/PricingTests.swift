@@ -189,7 +189,7 @@ final class PricingTests: XCTestCase {
         XCTAssertFalse(CacheReporting.nonReportingOpenCodeProviders.contains(""))
     }
 
-    func testCodexAutoReviewIsZeroRateAndPriced() {
+    func testCodexAutoReviewIsZeroRateAndNotBillable() {
         let rate = Pricing.rate(for: "codex-auto-review")
         XCTAssertNotNil(rate)
         XCTAssertEqual(rate?.inputPerMTok, 0)
@@ -198,6 +198,18 @@ final class PricingTests: XCTestCase {
         // Sanity: must be free at any volume.
         let usage = TokenUsage(input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheWrite: 1_000_000)
         XCTAssertEqual(Pricing.cost(of: usage, at: rate!), 0)
+        // The routing label has a catalog entry (so displayName resolves and
+        // exact-match is honored) but is not billable — the UI shows "-" for
+        // it, not "$0".
+        XCTAssertFalse(Pricing.isBillable(for: "codex-auto-review"))
+    }
+
+    func testIsBillableForPricedAndUnknownModels() {
+        XCTAssertTrue(Pricing.isBillable(for: "claude-opus-4-8"))
+        XCTAssertTrue(Pricing.isBillable(for: "gpt-5.2"))
+        XCTAssertTrue(Pricing.isBillable(for: "glm-5.2"))
+        // Unknown models have no catalog entry → not billable.
+        XCTAssertFalse(Pricing.isBillable(for: "internal-experimental-v0"))
     }
 
     func testCodexAutoReviewMatchingIsExact() {
