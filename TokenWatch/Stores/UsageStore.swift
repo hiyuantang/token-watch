@@ -369,8 +369,6 @@ enum UsageAggregator {
             timeline: timeline,
             sessionCount: sessionTokens.count,
             cacheReadShare: cacheReadShare,
-            currentStreak: currentStreak(events: selectedEvents, now: now, calendar: calendar),
-            peakActivityLabel: peakActivityLabel(timeline: timeline, range: range),
             sources: sources,
             cost: cost
         )
@@ -390,18 +388,6 @@ enum UsageAggregator {
             return calendar.dateInterval(of: .month, for: date)?.start ?? date
         }
         return calendar.startOfDay(for: date)
-    }
-
-    private static func currentStreak(events: [UsageEvent], now: Date, calendar: Calendar) -> Int {
-        let activeDays = Set(events.map { calendar.startOfDay(for: $0.timestamp) })
-        var day = calendar.startOfDay(for: now)
-        var count = 0
-        while activeDays.contains(day) {
-            count += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: day) else { break }
-            day = previousDay
-        }
-        return count
     }
 
     private static func computeCacheShare(
@@ -442,17 +428,6 @@ enum UsageAggregator {
         let all = UsageRange.allCases
         guard let start = all.firstIndex(of: range) else { return [] }
         return Array(all[(start + 1)...])
-    }
-
-    private static func peakActivityLabel(timeline: [TimelineBucket], range: UsageRange) -> String {
-        guard let peak = timeline.max(by: { $0.recordedTotal < $1.recordedTotal }) else { return "No activity yet" }
-        if range == .day {
-            return peak.date.formatted(date: .omitted, time: .shortened)
-        }
-        if range == .total {
-            return peak.date.formatted(.dateTime.year().month(.abbreviated))
-        }
-        return peak.date.formatted(.dateTime.month(.abbreviated).day())
     }
 
     private struct ModelKey: Hashable {

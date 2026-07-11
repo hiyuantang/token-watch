@@ -190,8 +190,6 @@ struct UsageSnapshot: Sendable {
     let timeline: [TimelineBucket]
     let sessionCount: Int
     let cacheReadShare: CacheShare?
-    let currentStreak: Int
-    let peakActivityLabel: String
     let sources: [SourceHealth]
     let cost: CostEstimate
 
@@ -204,8 +202,6 @@ struct UsageSnapshot: Sendable {
             timeline: [],
             sessionCount: 0,
             cacheReadShare: nil,
-            currentStreak: 0,
-            peakActivityLabel: "No activity yet",
             sources: sources,
             cost: CostEstimate.zero
         )

@@ -33,7 +33,6 @@ final class UsageSnapshotTests: XCTestCase {
         let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
         XCTAssertEqual(cacheShare.value, 0.5, accuracy: 0.0001)
         XCTAssertFalse(cacheShare.inferred)
-        XCTAssertEqual(snapshot.currentStreak, 1)
         XCTAssertEqual(calendar.startOfDay(for: snapshot.timeline[0].date), calendar.startOfDay(for: today.timestamp))
     }
 

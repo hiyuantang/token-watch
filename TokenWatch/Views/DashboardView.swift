@@ -118,13 +118,6 @@ private struct OverviewView: View {
                             symbol: "arrow.trianglehead.2.clockwise",
                             tint: .mint
                         )
-                        MetricCard(
-                            title: "Current streak",
-                            value: "\(snapshot.currentStreak) day\(snapshot.currentStreak == 1 ? "" : "s")",
-                            detail: snapshot.peakActivityLabel == "No activity yet" ? "No peak activity yet" : "Peak: \(snapshot.peakActivityLabel)",
-                            symbol: "flame",
-                            tint: .orange
-                        )
                     }
                 }
 
@@ -165,6 +158,7 @@ private struct OverviewView: View {
                             .frame(width: chartWidth, height: 250)
                             .accessibilityLabel("Token activity chart")
                         }
+                        .frame(height: 250)
                     }
                 }
 
