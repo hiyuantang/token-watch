@@ -3,7 +3,7 @@ import XCTest
 @testable import TokenWatch
 
 final class UsageSnapshotTests: XCTestCase {
-    func testDayRangeExcludesPriorCalendarDayAndCalculatesCacheShare() throws {
+    func testTodayRangeExcludesPriorCalendarDayAndCalculatesCacheShare() throws {
         let calendar = Calendar(identifier: .gregorian)
         let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
         let session = UUID()
@@ -25,7 +25,7 @@ final class UsageSnapshotTests: XCTestCase {
         )
         let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
 
-        let snapshot = UsageAggregator.snapshot(events: [today, yesterday], range: .day, sources: sources, now: now)
+        let snapshot = UsageAggregator.snapshot(events: [today, yesterday], range: .today, sources: sources, now: now)
 
         XCTAssertEqual(snapshot.usage.recordedTotal, 25)
         XCTAssertEqual(snapshot.sessionCount, 1)
@@ -34,6 +34,36 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertEqual(cacheShare.value, 0.5, accuracy: 0.0001)
         XCTAssertFalse(cacheShare.inferred)
         XCTAssertEqual(calendar.startOfDay(for: snapshot.timeline[0].date), calendar.startOfDay(for: today.timestamp))
+    }
+
+    func testDayRangeUsesRolling24Hours() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let within24Hours = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-08T23:00:00Z")!,
+            model: "gpt-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(recordedTotal: 40)
+        )
+        let outside24Hours = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-08T15:59:59Z")!,
+            model: "gpt-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(recordedTotal: 90)
+        )
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [within24Hours, outside24Hours],
+            range: .day,
+            sources: UsageProvider.allCases.map(SourceHealth.unconfigured),
+            now: now
+        )
+
+        XCTAssertEqual(snapshot.usage.recordedTotal, 40)
+        XCTAssertEqual(snapshot.timeline.count, 1)
     }
 
     func testEmptySnapshotProvidesAllProviders() {

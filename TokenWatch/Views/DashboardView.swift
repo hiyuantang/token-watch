@@ -55,7 +55,7 @@ struct DashboardView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 210)
+                .frame(width: 300)
             }
 
             ToolbarItem(placement: .primaryAction) {
@@ -77,21 +77,11 @@ private struct OverviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Recorded tokens")
-                        .font(.headline)
-                    Text(snapshot.range == .total
-                         ? "All recorded activity."
-                         : "Local transcript metadata for the last \(snapshot.range.rawValue) calendar day\(snapshot.range == .day ? "" : "s").")
-                        .foregroundStyle(.secondary)
-                }
-
                 GlassEffectContainer(spacing: 14) {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 175), spacing: 14)], spacing: 14) {
                         MetricCard(
                             title: "Recorded tokens",
                             value: TokenFormatting.compact(snapshot.usage.recordedTotal),
-                            detail: "Input, output, and provider cache fields",
                             symbol: "chart.bar.fill",
                             tint: .blue
                         )
@@ -100,21 +90,19 @@ private struct OverviewView: View {
                             value: TokenFormatting.usd(snapshot.cost.totalUSD),
                             detail: snapshot.cost.unpricedModelCount > 0
                                 ? "\(snapshot.cost.unpricedModelCount) model(s) unpriced"
-                                : "Local estimate from published rates",
+                                : nil,
                             symbol: "dollarsign.circle.fill",
                             tint: .green
                         )
                         MetricCard(
                             title: "Sessions",
                             value: TokenFormatting.full(snapshot.sessionCount),
-                            detail: "Opaque local session count",
                             symbol: "rectangle.stack",
                             tint: .purple
                         )
                         MetricCard(
                             title: "Cache read share",
                             value: TokenFormatting.cacheShareText(snapshot.cacheReadShare),
-                            detail: "Cached ÷ input for cache-reporting providers",
                             symbol: "arrow.trianglehead.2.clockwise",
                             tint: .mint
                         )
@@ -130,35 +118,7 @@ private struct OverviewView: View {
                         )
                         .frame(maxWidth: .infinity, minHeight: 220)
                     } else {
-                        let uniqueDateCount = Set(snapshot.timeline.map(\.date)).count
-                        let chartWidth = max(700, CGFloat(uniqueDateCount) * 30)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            Chart(snapshot.timeline) { bucket in
-                                BarMark(
-                                    x: .value(
-                                        snapshot.range == .day ? "Hour" : (snapshot.range == .total ? "Month" : "Day"),
-                                        bucket.date
-                                    ),
-                                    y: .value("Recorded tokens", bucket.recordedTotal),
-                                    width: .ratio(0.85)
-                                )
-                                .foregroundStyle(by: .value("Provider", bucket.provider.displayName))
-                            }
-                            .chartYAxis {
-                                AxisMarks(values: .automatic(desiredCount: 5)) { value in
-                                    AxisGridLine()
-                                    AxisValueLabel {
-                                        if let val = value.as(Int.self) {
-                                            Text(TokenFormatting.compact(val))
-                                        }
-                                    }
-                                }
-                            }
-                            .chartLegend(position: .bottom, alignment: .leading)
-                            .frame(width: chartWidth, height: 250)
-                            .accessibilityLabel("Token activity chart")
-                        }
-                        .frame(height: 250)
+                        ActivityChart(snapshot: snapshot)
                     }
                 }
 
@@ -196,6 +156,124 @@ private struct OverviewView: View {
             .padding(24)
         }
         .navigationTitle("Overview")
+    }
+
+}
+
+private struct ActivityChart: View {
+    let snapshot: UsageSnapshot
+
+    private var slots: [Date] {
+        let calendar = Calendar.current
+        let now = snapshot.generatedAt
+        let currentHour = calendar.dateInterval(of: .hour, for: now)?.start ?? now
+        let today = calendar.startOfDay(for: now)
+
+        let start: Date
+        let count: Int
+        let component: Calendar.Component
+        switch snapshot.range {
+        case .today:
+            start = today
+            count = 24
+            component = .hour
+        case .day:
+            start = calendar.date(byAdding: .hour, value: -23, to: currentHour) ?? currentHour
+            count = 24
+            component = .hour
+        case .week:
+            start = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+            count = 7
+            component = .day
+        case .month:
+            start = calendar.date(byAdding: .day, value: -29, to: today) ?? today
+            count = 30
+            component = .day
+        case .total:
+            let first = snapshot.timeline.first?.date ?? now
+            start = calendar.dateInterval(of: .month, for: first)?.start ?? first
+            let currentMonth = calendar.dateInterval(of: .month, for: now)?.start ?? now
+            count = max((calendar.dateComponents([.month], from: start, to: currentMonth).month ?? 0) + 1, 1)
+            component = .month
+        }
+
+        return (0..<count).compactMap { calendar.date(byAdding: component, value: $0, to: start) }
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let slotCount = max(slots.count, 1)
+            let minimumSlotWidth: CGFloat = snapshot.range == .total ? 38 : 26
+            let chartWidth = max(proxy.size.width, CGFloat(slotCount) * minimumSlotWidth)
+            let barWidth = min(max((chartWidth / CGFloat(slotCount)) * 0.68, 10), 64)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                Chart {
+                    ForEach(slots, id: \.self) { slot in
+                        PointMark(x: .value("Time slot", slot), y: .value("Baseline", 0))
+                            .opacity(0)
+                    }
+                    ForEach(snapshot.timeline) { bucket in
+                        BarMark(
+                            x: .value(axisTitle, bucket.date),
+                            y: .value("Recorded tokens", bucket.recordedTotal),
+                            width: .fixed(barWidth)
+                        )
+                        .foregroundStyle(by: .value("Provider", bucket.provider.displayName))
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: axisValues) { value in
+                        AxisGridLine()
+                        AxisValueLabel(format: axisFormat, centered: false)
+                    }
+                }
+                .chartXScale(
+                    range: .plotDimension(
+                        startPadding: barWidth / 2 + 12,
+                        endPadding: barWidth / 2 + 12
+                    )
+                )
+                .chartYAxis {
+                    AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                        AxisGridLine()
+                        AxisValueLabel {
+                            if let val = value.as(Int.self) {
+                                Text(TokenFormatting.compact(val))
+                            }
+                        }
+                    }
+                }
+                .chartLegend(position: .bottom, alignment: .leading)
+                .frame(width: chartWidth, height: 250)
+                .accessibilityLabel("Token activity chart")
+            }
+        }
+        .frame(height: 250)
+    }
+
+    private var axisTitle: String {
+        switch snapshot.range {
+        case .today, .day: "Hour"
+        case .week, .month: "Day"
+        case .total: "Month"
+        }
+    }
+
+    private var axisValues: [Date] {
+        switch snapshot.range {
+        case .today, .day: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? $0.element : nil }
+        case .month: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? $0.element : nil }
+        case .week, .total: slots
+        }
+    }
+
+    private var axisFormat: Date.FormatStyle {
+        switch snapshot.range {
+        case .today, .day: .dateTime.hour()
+        case .week, .month: .dateTime.month(.abbreviated).day()
+        case .total: .dateTime.month(.abbreviated).year(.twoDigits)
+        }
     }
 }
 

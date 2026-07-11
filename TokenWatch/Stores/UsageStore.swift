@@ -279,7 +279,7 @@ enum UsageAggregator {
         let calendar = Calendar.current
         let start = rangeStart(range, now: now, calendar: calendar)
         let selectedEvents = events.filter { $0.timestamp >= start && $0.timestamp <= now }
-        guard !selectedEvents.isEmpty else { return .empty(range: range, sources: sources) }
+        guard !selectedEvents.isEmpty else { return .empty(range: range, sources: sources, generatedAt: now) }
 
         var usage = TokenUsage.zero
         var providerUsage = Dictionary(uniqueKeysWithValues: UsageProvider.allCases.map { ($0, TokenUsage.zero) })
@@ -370,18 +370,24 @@ enum UsageAggregator {
             sessionCount: sessionTokens.count,
             cacheReadShare: cacheReadShare,
             sources: sources,
-            cost: cost
+            cost: cost,
+            generatedAt: now
         )
     }
 
     private static func rangeStart(_ range: UsageRange, now: Date, calendar: Calendar) -> Date {
         guard let dayCount = range.dayCount else { return .distantPast }
         let today = calendar.startOfDay(for: now)
+        if range == .today { return today }
+        if range == .day {
+            let currentHour = calendar.dateInterval(of: .hour, for: now)?.start ?? now
+            return calendar.date(byAdding: .hour, value: -23, to: currentHour) ?? currentHour
+        }
         return calendar.date(byAdding: .day, value: -(dayCount - 1), to: today) ?? today
     }
 
     private static func bucketDate(for date: Date, range: UsageRange, calendar: Calendar) -> Date {
-        if range == .day {
+        if range == .today || range == .day {
             return calendar.dateInterval(of: .hour, for: date)?.start ?? date
         }
         if range == .total {
@@ -427,7 +433,13 @@ enum UsageAggregator {
     private static func widerRanges(after range: UsageRange) -> [UsageRange] {
         let all = UsageRange.allCases
         guard let start = all.firstIndex(of: range) else { return [] }
-        return Array(all[(start + 1)...])
+        var wider = Array(all[(start + 1)...])
+        // .today should not fall back to .day because the rolling 24-hour window
+        // is not always a superset of the calendar day.
+        if range == .today, let dayIndex = wider.firstIndex(of: .day) {
+            wider.remove(at: dayIndex)
+        }
+        return wider
     }
 
     private struct ModelKey: Hashable {

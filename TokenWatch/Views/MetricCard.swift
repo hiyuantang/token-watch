@@ -3,9 +3,23 @@ import SwiftUI
 struct MetricCard: View {
     let title: String
     let value: String
-    let detail: String
+    let detail: String?
     let symbol: String
     let tint: Color
+
+    init(
+        title: String,
+        value: String,
+        detail: String? = nil,
+        symbol: String,
+        tint: Color
+    ) {
+        self.title = title
+        self.value = value
+        self.detail = detail
+        self.symbol = symbol
+        self.tint = tint
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -17,10 +31,12 @@ struct MetricCard: View {
                 .font(.title2.weight(.semibold))
                 .contentTransition(.numericText())
 
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if let detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()

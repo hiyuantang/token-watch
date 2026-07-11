@@ -25,16 +25,34 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
 }
 
 enum UsageRange: Int, CaseIterable, Identifiable, Sendable {
+    case today = -1
     case day = 1
     case week = 7
     case month = 30
     case total = 0
 
     var id: Int { rawValue }
-    var dayCount: Int? { self == .total ? nil : rawValue }
-    var shortTitle: String { self == .total ? "Total" : "\(rawValue)D" }
+    var dayCount: Int? {
+        switch self {
+        case .today: 0
+        case .total: nil
+        default: rawValue
+        }
+    }
+    var shortTitle: String {
+        switch self {
+        case .today: "Today"
+        case .total: "Total"
+        default: "\(rawValue)D"
+        }
+    }
     var accessibilityTitle: String {
-        self == .total ? "All recorded activity" : "Last \(rawValue) calendar day\(rawValue == 1 ? "" : "s")"
+        switch self {
+        case .today: "Today"
+        case .day: "Last 24 hours"
+        case .week, .month: "Last \(rawValue) calendar days"
+        case .total: "All recorded activity"
+        }
     }
 }
 
@@ -192,8 +210,9 @@ struct UsageSnapshot: Sendable {
     let cacheReadShare: CacheShare?
     let sources: [SourceHealth]
     let cost: CostEstimate
+    let generatedAt: Date
 
-    static func empty(range: UsageRange, sources: [SourceHealth]) -> UsageSnapshot {
+    static func empty(range: UsageRange, sources: [SourceHealth], generatedAt: Date = Date()) -> UsageSnapshot {
         UsageSnapshot(
             range: range,
             usage: .zero,
@@ -203,7 +222,8 @@ struct UsageSnapshot: Sendable {
             sessionCount: 0,
             cacheReadShare: nil,
             sources: sources,
-            cost: CostEstimate.zero
+            cost: CostEstimate.zero,
+            generatedAt: generatedAt
         )
     }
 }
