@@ -126,8 +126,15 @@ private struct OverviewView: View {
                     VStack(spacing: 12) {
                         ForEach(snapshot.providers) { provider in
                             HStack {
-                                Label(provider.provider.displayName, systemImage: providerSymbol(provider.provider))
-                                    .foregroundStyle(provider.provider.tint)
+                                Label {
+                                    Text(provider.provider.displayName)
+                                        .foregroundStyle(provider.provider.tint)
+                                } icon: {
+                                    Image(provider.provider.logoName)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 18, height: 18)
+                                }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 2) {
                                     HStack(spacing: 4) {
@@ -288,14 +295,6 @@ private struct ActivityChart: View {
         case .week, .month: .dateTime.month(.abbreviated).day()
         case .total: .dateTime.month(.abbreviated).year(.twoDigits)
         }
-    }
-}
-
-private func providerSymbol(_ provider: UsageProvider) -> String {
-    switch provider {
-    case .claudeCode: "sparkles"
-    case .codex: "terminal"
-    case .openCode: "curlybraces"
     }
 }
 

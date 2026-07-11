@@ -23,6 +23,14 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         case .openCode: "."
         }
     }
+
+    var logoName: String {
+        switch self {
+        case .claudeCode: "claude-logo"
+        case .codex: "codex-logo"
+        case .openCode: "opencode-logo"
+        }
+    }
 }
 
 extension UsageProvider {

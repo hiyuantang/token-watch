@@ -120,14 +120,19 @@ struct MenuBarPopover: View {
 
             VStack(spacing: 10) {
                 ForEach(snapshot.providers) { provider in
-                    HStack {
+                    HStack(spacing: 8) {
+                        Image(provider.provider.logoName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 16, height: 16)
                         Text(provider.provider.displayName)
+                            .foregroundStyle(provider.provider.tint)
                         Spacer()
                         Text(TokenFormatting.compact(provider.usage.recordedTotal))
                             .monospacedDigit()
+                            .foregroundStyle(provider.provider.tint)
                     }
                     .font(.callout)
-                    .foregroundStyle(provider.provider.tint)
                 }
             }
 
@@ -154,9 +159,10 @@ struct MenuBarPopover: View {
                             ? 0
                             : Double(model.usage.recordedTotal) / Double(totalRecorded)
                         HStack(spacing: 8) {
-                            Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
-                                .foregroundStyle(model.provider.tint)
-                                .frame(width: 16)
+                            Image(model.provider.logoName)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 16, height: 16)
                             Text(Pricing.displayName(for: model.model))
                                 .font(.callout)
                                 .lineLimit(1)
