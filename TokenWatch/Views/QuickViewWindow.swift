@@ -6,24 +6,34 @@ struct QuickViewWindow: View {
     @AppStorage("TokenWatch.quickView.alwaysOnTop") private var alwaysOnTop = false
 
     var body: some View {
-        MenuBarPopover(store: store)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
-            .overlay(alignment: .topTrailing) {
-                Button {
-                    alwaysOnTop.toggle()
-                } label: {
-                    Image(systemName: alwaysOnTop ? "pin.fill" : "pin")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+        ZStack {
+            Rectangle()
+                .fill(.clear)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16))
+                .ignoresSafeArea()
+
+            MenuBarPopover(store: store)
+        }
+        .fixedSize()
+        .toolbar(removing: .title)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .toolbar {
+            ToolbarSpacer(.flexible)
+
+            ToolbarItem(placement: .primaryAction) {
+                Toggle(isOn: $alwaysOnTop) {
+                    Label(
+                        "Always on Top",
+                        systemImage: alwaysOnTop ? "pin.fill" : "pin"
+                    )
                 }
-                .buttonStyle(.plain)
+                .toggleStyle(.button)
                 .help(alwaysOnTop ? "Stop keeping this window on top" : "Keep this window on top")
-                .padding(.trailing, 8)
-                .padding(.top, 6)
             }
-            .background {
-                WindowLevelSetter(level: alwaysOnTop ? .floating : .normal)
-            }
+        }
+        .background {
+            WindowLevelSetter(level: alwaysOnTop ? .floating : .normal)
+        }
     }
 }
 
@@ -63,7 +73,7 @@ private final class WindowLevelView: NSView {
         guard let window = window else { return }
         window.level = level
         window.styleMask.remove(.resizable)
-        window.styleMask.insert(.borderless)
+        window.styleMask.insert(.fullSizeContentView)
         window.isOpaque = false
         window.backgroundColor = .clear
         window.titleVisibility = .hidden

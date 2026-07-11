@@ -37,26 +37,41 @@ struct MenuBarPopover: View {
                 }
             }
 
-            Picker("Date range", selection: $range) {
-                ForEach(UsageRange.allCases) { range in
-                    Text(range.shortTitle).tag(range)
+            HStack(spacing: 10) {
+                Picker("Date range", selection: $range) {
+                    ForEach(UsageRange.allCases) { range in
+                        Text(range.shortTitle).tag(range)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .tint(Color(white: 0.28))
+                .labelsHidden()
+                .accessibilityLabel("Date range")
+
+                Picker("Breakdown", selection: $breakdownMetric) {
+                    ForEach(PopoverBreakdownMetric.allCases) { metric in
+                        Text(metric.rawValue).tag(metric)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .tint(Color(white: 0.28))
+                .labelsHidden()
+                .frame(width: 104)
+                .accessibilityLabel("Breakdown metric")
             }
-            .pickerStyle(.segmented)
-            .tint(Color(white: 0.28))
-            .labelsHidden()
-            .accessibilityLabel("Date range")
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Recorded tokens")
+                Text(breakdownMetric.summaryTitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text(TokenFormatting.full(snapshot.usage.recordedTotal))
+                Text(breakdownMetric.formattedSummary(for: snapshot))
                     .font(.system(size: 46, weight: .bold, design: .rounded))
                     .lineLimit(1)
                     .monospacedDigit()
                     .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.45), value: breakdownMetric)
                     .animation(.easeInOut(duration: 0.45), value: snapshot.usage.recordedTotal)
+                    .animation(.easeInOut(duration: 0.45), value: snapshot.cost.totalUSD)
             }
 
             PopoverBreakdown(
@@ -135,6 +150,20 @@ private enum PopoverBreakdownMetric: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    var summaryTitle: String {
+        switch self {
+        case .tokens: "Recorded tokens"
+        case .price: "Estimated cost"
+        }
+    }
+
+    func formattedSummary(for snapshot: UsageSnapshot) -> String {
+        switch self {
+        case .tokens: TokenFormatting.full(snapshot.usage.recordedTotal)
+        case .price: TokenFormatting.usd(snapshot.cost.totalUSD)
+        }
+    }
+
     func value(for provider: ProviderSummary) -> Double {
         switch self {
         case .tokens: Double(provider.usage.recordedTotal)
@@ -152,7 +181,7 @@ private enum PopoverBreakdownMetric: String, CaseIterable, Identifiable {
     func formattedTotal(for snapshot: UsageSnapshot) -> String {
         switch self {
         case .tokens: TokenFormatting.compact(snapshot.usage.recordedTotal)
-        case .price: TokenFormatting.usd(snapshot.cost.totalUSD)
+        case .price: TokenFormatting.compactUSD(snapshot.cost.totalUSD)
         }
     }
 }
@@ -167,18 +196,6 @@ private struct PopoverBreakdown: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker("Breakdown", selection: $metric) {
-                ForEach(PopoverBreakdownMetric.allCases) { metric in
-                    Text(metric.rawValue).tag(metric)
-                }
-            }
-            .pickerStyle(.segmented)
-            .tint(Color(white: 0.28))
-            .labelsHidden()
-            .frame(width: 180)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .accessibilityLabel("Breakdown metric")
-
             HStack(spacing: 24) {
                 ProviderRing(snapshot: snapshot, metric: metric)
                     .frame(width: 124, height: 124)

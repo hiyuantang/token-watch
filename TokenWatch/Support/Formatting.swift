@@ -22,6 +22,15 @@ enum TokenFormatting {
         return value.formatted(.currency(code: "USD").grouping(.automatic).precision(.fractionLength(0 ... 2)))
     }
 
+    static func compactUSD(_ value: Double) -> String {
+        guard abs(value) >= 1_000 else { return usd(value) }
+        return value.formatted(
+            .currency(code: "USD")
+                .notation(.compactName)
+                .precision(.fractionLength(0 ... 1))
+        )
+    }
+
     /// Cache-share display string. `~` prefix when the value was inferred by
     /// stepping back to a wider range; `-` when no cache-reporting data exists
     /// in any range.

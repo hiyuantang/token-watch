@@ -31,7 +31,7 @@ struct TokenWatchApp: App {
         WindowGroup("Token Watch", id: "dashboard") {
             DashboardView(store: usageStore)
         }
-        .defaultSize(width: 980, height: 660)
+        .defaultSize(width: 1_026, height: 670)
 
         Window("Token Watch Quick View", id: "quick-view") {
             QuickViewWindow(store: usageStore)

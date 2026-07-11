@@ -38,6 +38,7 @@ struct DashboardView: View {
             }
             .listStyle(.sidebar)
             .navigationTitle("Token Watch")
+            .navigationSplitViewColumnWidth(min: 148, ideal: 148, max: 320)
         } detail: {
             switch section ?? .overview {
             case .overview:
