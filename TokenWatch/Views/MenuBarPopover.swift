@@ -155,39 +155,25 @@ struct MenuBarPopover: View {
                         .foregroundStyle(.secondary)
                 } else {
                     let totalRecorded = snapshot.usage.recordedTotal
-                    ForEach(snapshot.models.prefix(5)) { model in
-                        let share = totalRecorded == 0
-                            ? 0
-                            : Double(model.usage.recordedTotal) / Double(totalRecorded)
-                        HStack(spacing: 8) {
-                            Image(model.provider.logoName)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 16, height: 16)
-                            Text(Pricing.displayName(for: model.model))
-                                .font(.callout)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                            Spacer()
-                            Text(TokenFormatting.compact(model.usage.recordedTotal))
-                                .font(.callout)
-                                .monospacedDigit()
-                            Text(TokenFormatting.percentage(share))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                                .frame(width: 40, alignment: .trailing)
+                    let modelRows: CGFloat = 20
+                    let priceRows: CGFloat = 14
+                    let vSpacing: CGFloat = 8
+                    let visibleCount = 5
+                    if snapshot.models.count <= visibleCount {
+                        VStack(alignment: .leading, spacing: vSpacing) {
+                            modelListContent(snapshot.models, totalRecorded: totalRecorded)
                         }
-                        if model.priced {
-                            HStack(spacing: 8) {
-                                Text("").frame(width: 16)
-                                Text(TokenFormatting.usd(model.costUSD))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                                Spacer()
+                    } else {
+                        let pricedInFirst5 = snapshot.models.prefix(visibleCount).filter(\.priced).count
+                        let scrollHeight = CGFloat(visibleCount) * modelRows
+                            + CGFloat(pricedInFirst5) * priceRows
+                            + CGFloat(visibleCount + pricedInFirst5 - 1) * vSpacing
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: vSpacing) {
+                                modelListContent(snapshot.models, totalRecorded: totalRecorded)
                             }
                         }
+                        .frame(height: scrollHeight)
                     }
                 }
             }
@@ -235,5 +221,45 @@ private struct PopoverStat: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension MenuBarPopover {
+    @ViewBuilder
+    func modelListContent(_ models: [ModelSummary], totalRecorded: Int) -> some View {
+        ForEach(models) { model in
+            let share = totalRecorded == 0
+                ? 0
+                : Double(model.usage.recordedTotal) / Double(totalRecorded)
+            HStack(spacing: 8) {
+                Image(model.provider.logoName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                Text(Pricing.displayName(for: model.model))
+                    .font(.callout)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer()
+                Text(TokenFormatting.compact(model.usage.recordedTotal))
+                    .font(.callout)
+                    .monospacedDigit()
+                Text(TokenFormatting.percentage(share))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 40, alignment: .trailing)
+            }
+            if model.priced {
+                HStack(spacing: 8) {
+                    Text("").frame(width: 16)
+                    Text(TokenFormatting.usd(model.costUSD))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                }
+            }
+        }
     }
 }
