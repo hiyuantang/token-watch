@@ -7,20 +7,21 @@ struct QuickViewWindow: View {
 
     var body: some View {
         MenuBarPopover(store: store)
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    alwaysOnTop.toggle()
+                } label: {
+                    Image(systemName: alwaysOnTop ? "pin.fill" : "pin")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(alwaysOnTop ? "Stop keeping this window on top" : "Keep this window on top")
+                .padding(.trailing, 8)
+                .padding(.top, 6)
+            }
             .background {
                 WindowLevelSetter(level: alwaysOnTop ? .floating : .normal)
-            }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Toggle(isOn: $alwaysOnTop) {
-                        Label(
-                            "Always on Top",
-                            systemImage: alwaysOnTop ? "pin.fill" : "pin"
-                        )
-                    }
-                    .toggleStyle(.button)
-                    .help(alwaysOnTop ? "Stop keeping this window on top" : "Keep this window on top")
-                }
             }
     }
 }
@@ -58,6 +59,10 @@ private final class WindowLevelView: NSView {
     }
 
     private func applyLevel() {
-        window?.level = level
+        guard let window = window else { return }
+        window.level = level
+        window.styleMask.remove(.resizable)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
     }
 }

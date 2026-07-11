@@ -54,7 +54,6 @@ struct MenuBarPopover: View {
                 Text(TokenFormatting.full(snapshot.usage.recordedTotal))
                     .font(.system(size: 46, weight: .bold, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.5)
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .animation(.easeInOut(duration: 0.45), value: snapshot.usage.recordedTotal)
