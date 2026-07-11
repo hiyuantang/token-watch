@@ -195,15 +195,6 @@ struct MenuBarPopover: View {
                 Spacer()
 
                 Button {
-                    store.refresh()
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .labelStyle(.iconOnly)
-                .help("Refresh local transcript metadata")
-                .disabled(store.isRefreshing)
-
-                Button {
                     NSApp.terminate(nil)
                 } label: {
                     Image(systemName: "power")
