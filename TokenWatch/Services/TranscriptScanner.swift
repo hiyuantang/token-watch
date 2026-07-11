@@ -278,7 +278,7 @@ struct TranscriptScanner: Sendable {
                 contribution = uniqueFallback(last, timestamp: timestamp, fingerprints: &fallbackFingerprints)
             }
 
-            guard let contribution, contribution.recordedTotal > 0 else { return }
+            guard let contribution, contribution.recordedTotal > 0, !isIgnoredCodexModel(model) else { return }
             events.append(
                 UsageEvent(
                     id: UUID(),
@@ -291,6 +291,12 @@ struct TranscriptScanner: Sendable {
             )
             source.usageRecords += 1
         }
+    }
+
+    private func isIgnoredCodexModel(_ model: String?) -> Bool {
+        guard let model, !model.isEmpty else { return false }
+        if model == "codex-auto-review" { return false }
+        return !model.lowercased().contains("gpt")
     }
 
     private func uniqueFallback(

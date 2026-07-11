@@ -72,7 +72,8 @@ struct OpenCodeScanner: Sendable {
         guard let data = json.data(using: .utf8) else { throw OpenCodeScannerError.unreadable }
         let rows = try JSONDecoder().decode([OpenCodeSessionRow].self, from: data)
         for row in rows {
-            let model = row.model.flatMap(decodeModel)
+            guard let modelJSON = row.model else { continue }
+            let model = decodeModel(modelJSON)
             if model == nil { source.malformedLines += 1 }
             let sessionToken = sessionTokens.token(for: .openCode, identifier: row.id)
             events.append(

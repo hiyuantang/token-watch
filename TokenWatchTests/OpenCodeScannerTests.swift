@@ -100,7 +100,7 @@ final class OpenCodeScannerTests: XCTestCase {
         XCTAssertEqual(health.unreadableFiles, 1)
     }
 
-    func testNullModelStillEmitsEventsWithUnknownModel() throws {
+    func testNullModelRowsAreSkippedEntirely() throws {
         let root = try makeTemporaryDirectory()
         let dbPath = root.appendingPathComponent("opencode.db")
         try runSqlite(dbPath, sql: """
@@ -124,15 +124,13 @@ final class OpenCodeScannerTests: XCTestCase {
 
         let result = OpenCodeScanner().scan(root: root, now: Date())
 
-        XCTAssertEqual(result.events.count, 2)
-        let nullModelEvent = try XCTUnwrap(result.events.first { $0.usage.input == 100 })
-        XCTAssertEqual(nullModelEvent.model, "Unknown model")
-        XCTAssertEqual(nullModelEvent.usage.output, 20)
-        let withModelEvent = try XCTUnwrap(result.events.first { $0.model == "glm-5.2" })
-        XCTAssertEqual(withModelEvent.usage.input, 50)
+        XCTAssertEqual(result.events.count, 1)
+        let event = try XCTUnwrap(result.events.first)
+        XCTAssertEqual(event.model, "glm-5.2")
+        XCTAssertEqual(event.usage.input, 50)
         let health = try XCTUnwrap(result.sources.first { $0.provider == .openCode })
-        XCTAssertEqual(health.usageRecords, 2)
-        XCTAssertEqual(health.malformedLines, 1)
+        XCTAssertEqual(health.usageRecords, 1)
+        XCTAssertEqual(health.malformedLines, 0)
     }
 
     func testModelJsonProviderIDIsPlumbedIntoEvent() throws {

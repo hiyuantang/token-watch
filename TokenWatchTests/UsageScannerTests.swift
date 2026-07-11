@@ -135,6 +135,28 @@ final class UsageScannerTests: XCTestCase {
         XCTAssertEqual(readyProviders.count, 3)
     }
 
+    func testCodexIgnoresNonGptModelsButKeepsAutoReview() throws {
+        let root = try makeTemporaryDirectory(named: ".codex")
+        let sessions = root.appendingPathComponent("sessions/2026/07/09", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+
+        let transcript = """
+        {"type":"turn_context","timestamp":"2026-07-09T10:00:00Z","payload":{"model":"mimo-v2.5-pro"}}
+        {"type":"event_msg","timestamp":"2026-07-09T10:01:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":5,"output_tokens":5,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":10},"last_token_usage":{"input_tokens":5,"output_tokens":5,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":10}}}}
+        {"type":"turn_context","timestamp":"2026-07-09T10:02:00Z","payload":{"model":"gpt-5.2"}}
+        {"type":"event_msg","timestamp":"2026-07-09T10:03:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":9,"output_tokens":9,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":18},"last_token_usage":{"input_tokens":4,"output_tokens":4,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":8}}}}
+        {"type":"turn_context","timestamp":"2026-07-09T10:04:00Z","payload":{"model":"codex-auto-review"}}
+        {"type":"event_msg","timestamp":"2026-07-09T10:05:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3,"output_tokens":2,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":5},"last_token_usage":{"input_tokens":1,"output_tokens":1,"cached_input_tokens":0,"reasoning_output_tokens":0,"total_tokens":2}}}}
+        """
+        try transcript.data(using: .utf8)!.write(to: sessions.appendingPathComponent("rollout-mixed.jsonl"))
+
+        let result = TranscriptScanner().scan(claudeRoot: nil, codexRoot: root, openCodeRoot: nil)
+
+        XCTAssertEqual(result.events.count, 2)
+        XCTAssertEqual(result.events.map(\.model), ["gpt-5.2", "codex-auto-review"])
+        XCTAssertEqual(result.events.map(\.usage.recordedTotal), [8, 2])
+    }
+
     private func runSqliteCli(_ dbPath: URL, sql: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
