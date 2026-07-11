@@ -2,7 +2,9 @@
 
 A macOS 26+ SwiftUI menu-bar app that shows token-usage metadata already recorded locally by Claude Code, Codex, and OpenCode — no network, no sign-in, no data leaving your machine.
 
-![Token Watch screenshot](docs/screenshot.jpg)
+<p align="center">
+  <img src="docs/screenshot.png" width="480" alt="Token Watch screenshot">
+</p>
 
 ## What it does
 
