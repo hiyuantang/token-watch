@@ -315,7 +315,9 @@ enum UsageAggregator {
                 modelPriced[modelKey] = true
                 let inputUSD = Double(event.usage.input) * rate.inputPerMTok / mtok
                 let cacheReadUSD = Double(event.usage.cacheRead) * rate.cachedInputPerMTok / mtok
-                let cacheWriteUSD = Double(event.usage.cacheWrite) * rate.inputPerMTok / mtok
+                let cacheWrite5mUSD = Double(event.usage.cacheWrite5m) * rate.cacheWrite5mPerMTok / mtok
+                let cacheWrite1hUSD = Double(event.usage.cacheWrite1h) * rate.cacheWrite1hPerMTok / mtok
+                let cacheWriteUSD = cacheWrite5mUSD + cacheWrite1hUSD
                 let outputUSD = Double(event.usage.output) * rate.outputPerMTok / mtok
                 let reasoningUSD = Double(event.usage.reasoningOutput) * rate.outputPerMTok / mtok
                 let eventCost = inputUSD + cacheReadUSD + cacheWriteUSD + outputUSD + reasoningUSD
@@ -420,7 +422,8 @@ enum UsageAggregator {
         let cacheEvents = events.filter(reportsCacheTokens)
         let cacheRead = cacheEvents.map(\.usage.cacheRead).reduce(0, +)
         let input = cacheEvents.map(\.usage.input).reduce(0, +)
-        let denom = cacheRead + input
+        let cacheWrite = cacheEvents.map(\.usage.cacheWrite).reduce(0, +)
+        let denom = cacheRead + input + cacheWrite
         guard denom > 0 else { return nil }
         return .init(value: Double(cacheRead) / Double(denom), inferred: false)
     }

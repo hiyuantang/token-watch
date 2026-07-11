@@ -289,4 +289,41 @@ final class UsageSnapshotTests: XCTestCase {
 
         XCTAssertNil(snapshot.cacheReadShare)
     }
+
+    func testCacheShareDenominatorIncludesCacheWrite() throws {
+        // cacheRead / (cacheRead + input + cacheWrite). cacheWrite is input-side
+        // spend that becomes a future cache hit, so it counts against the rate.
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let event = UsageEvent(
+            id: UUID(),
+            provider: .claudeCode,
+            timestamp: now,
+            model: "claude-test",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 100, output: 0, cacheRead: 50, cacheWrite: 200)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(
+            events: [event],
+            range: .total,
+            sources: sources,
+            now: now
+        )
+
+        // 50 / (50 + 100 + 200) = 50 / 350 = 0.142857…
+        let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
+        XCTAssertEqual(cacheShare.value, 50.0 / 350.0, accuracy: 0.0001)
+        XCTAssertFalse(cacheShare.inferred)
+    }
+
+    func testDisplayInputMergesCacheWrite() {
+        // displayInput = input + cacheWrite, so the UI shows a single input-side
+        // number that includes the write-premium bucket.
+        let usage = TokenUsage(input: 1_000, output: 500, cacheRead: 200, cacheWrite: 300)
+        XCTAssertEqual(usage.displayInput, 1_300)
+
+        let zero = TokenUsage.zero
+        XCTAssertEqual(zero.displayInput, 0)
+    }
 }

@@ -51,7 +51,7 @@ struct ModelsView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Text("· In \(TokenFormatting.compact(model.usage.input)) · Out \(TokenFormatting.compact(model.usage.output))")
+                                Text("· In \(TokenFormatting.compact(model.usage.displayInput)) · Out \(TokenFormatting.compact(model.usage.output))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

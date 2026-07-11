@@ -99,16 +99,61 @@ final class PricingTests: XCTestCase {
     }
 
     func testCostCalculationForClaudeOpus() {
-        // 1M input + 1M cache read + 0.5M output at Opus 4.8 rates.
+        // 1M input + 1M cache read + 100K cache write (5m) + 0.5M output at Opus 4.8.
         // input: 1,000,000 * 5.00 / 1M = 5.00
         // cacheRead: 1,000,000 * 0.50 / 1M = 0.50
-        // cacheWrite: 100,000 * 5.00 / 1M = 0.50 (charged at base input)
+        // cacheWrite5m: 100,000 * 6.25 / 1M = 0.625 (1.25× input)
         // output: 500,000 * 25.00 / 1M = 12.50
-        // total = 18.50
+        // total = 18.625
         let usage = TokenUsage(input: 1_000_000, output: 500_000, cacheRead: 1_000_000, cacheWrite: 100_000)
         let rate = Pricing.rate(for: "claude-opus-4-8")!
         let cost = Pricing.cost(of: usage, at: rate)
-        XCTAssertEqual(cost, 18.50, accuracy: 0.0001)
+        XCTAssertEqual(cost, 18.625, accuracy: 0.0001)
+    }
+
+    func testClaudeCacheWriteTtlSplit() {
+        // 100K cacheWrite split: 80K 1h (2× input) + 20K 5m (1.25× input).
+        // Opus 4.8: input=$5, 1h=$10, 5m=$6.25 per MTok.
+        // 1h: 80,000 * 10.00 / 1M = 0.80
+        // 5m: 20,000 * 6.25 / 1M = 0.125
+        // total cacheWrite cost = 0.925
+        let usage = TokenUsage(input: 0, output: 0, cacheRead: 0, cacheWrite: 100_000, cacheWrite1h: 80_000)
+        let rate = Pricing.rate(for: "claude-opus-4-8")!
+        let cost = Pricing.cost(of: usage, at: rate)
+        XCTAssertEqual(cost, 0.925, accuracy: 0.0001)
+        // 5m portion is the remainder
+        XCTAssertEqual(usage.cacheWrite5m, 20_000)
+        XCTAssertEqual(usage.cacheWrite1h, 80_000)
+    }
+
+    func testClaudeCacheWriteRates() {
+        let rate = Pricing.rate(for: "claude-opus-4-8")!
+        XCTAssertEqual(rate.cacheWrite5mPerMTok, rate.inputPerMTok * 1.25, accuracy: 0.0001)
+        XCTAssertEqual(rate.cacheWrite1hPerMTok, rate.inputPerMTok * 2.0, accuracy: 0.0001)
+        XCTAssertEqual(rate.cacheWrite5mPerMTok, 6.25, accuracy: 0.0001)
+        XCTAssertEqual(rate.cacheWrite1hPerMTok, 10.00, accuracy: 0.0001)
+
+        let sonnet = Pricing.rate(for: "claude-sonnet-5")!
+        XCTAssertEqual(sonnet.cacheWrite5mPerMTok, 2.50, accuracy: 0.0001)
+        XCTAssertEqual(sonnet.cacheWrite1hPerMTok, 4.00, accuracy: 0.0001)
+
+        let haiku = Pricing.rate(for: "claude-haiku-4-5")!
+        XCTAssertEqual(haiku.cacheWrite5mPerMTok, 1.25, accuracy: 0.0001)
+        XCTAssertEqual(haiku.cacheWrite1hPerMTok, 2.00, accuracy: 0.0001)
+    }
+
+    func testNonClaudeCacheWriteDefaultsToInputRate() {
+        // Non-Claude providers do not publish a distinct write rate; both 5m
+        // and 1h default to the base input rate.
+        let gpt = Pricing.rate(for: "gpt-5")!
+        XCTAssertEqual(gpt.cacheWrite5mPerMTok, gpt.inputPerMTok, accuracy: 0.0001)
+        XCTAssertEqual(gpt.cacheWrite1hPerMTok, gpt.inputPerMTok, accuracy: 0.0001)
+
+        let glm = Pricing.rate(for: "glm-5.2")!
+        XCTAssertEqual(glm.cacheWrite5mPerMTok, glm.inputPerMTok, accuracy: 0.0001)
+
+        let deepseek = Pricing.rate(for: "deepseek-v4-flash")!
+        XCTAssertEqual(deepseek.cacheWrite5mPerMTok, deepseek.inputPerMTok, accuracy: 0.0001)
     }
 
     func testCostCalculationForDeepSeekFlash() {

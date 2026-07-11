@@ -9,20 +9,28 @@ All prices are in **USD per 1,000,000 tokens (MTok)** unless noted.
 
 ## How to read this file
 
-Each model entry lists three standard rates that map directly onto the token
-fields Token Watch already aggregates:
+Each model entry lists the rates that map directly onto the token fields Token
+Watch aggregates:
 
 | Field            | Meaning                                             | Token Watch field        |
 | ---------------- | --------------------------------------------------- | ------------------------ |
 | Input            | Standard (cache-miss) input price                   | `usage.input`            |
 | Cached input     | Cache-read / cache-hit input price                  | `usage.cacheRead`        |
+| Cache write 5m  | 5m cache-write price (Claude only; = input otherwise)| `usage.cacheWrite5m`    |
+| Cache write 1h  | 1h cache-write price (Claude only; = input otherwise)| `usage.cacheWrite1h`     |
 | Output           | Standard output price (incl. reasoning where billed)| `usage.output` (+ `reasoningOutput` for Codex-style models that split it out) |
 
-`cacheWrite` tokens are charged at a write premium on most providers, but Token
-Watch's cost estimate intentionally uses the **standard input rate** for cache
-writes (no provider universally publishes a separate write rate, and the delta is
-small relative to the read discount). This keeps the estimate conservative and
-simple. A future revision can add a per-model `cacheWrite` rate.
+For **display**, Token Watch merges `input` + `cacheWrite` into a single
+"Input" figure (`TokenUsage.displayInput`) because cache write is input-side
+spend — it's the same tokens, just marked for caching at a write premium. The
+pricing logic still charges each bucket at its own rate.
+
+Claude publishes a 5m cache-write rate of 1.25× base input and a 1h rate of 2×
+input. Claude Code transcripts report the TTL split as
+`cache_creation.ephemeral_1h_input_tokens` and `ephemeral_5m_input_tokens`, so
+Token Watch charges each portion at its actual rate. Other providers do not
+publish a distinct write rate, so their `cacheWrite` defaults to the base input
+rate.
 
 ## Update protocol (read before editing)
 
@@ -48,25 +56,29 @@ simple. A future revision can add a per-model `cacheWrite` rate.
 
 ## Anthropic — Claude
 
-Source: <https://docs.anthropic.com/en/docs/about-claude/pricing>
-Last verified: 2026-07-09
+Source: <https://platform.claude.com/docs/en/about-claude/pricing>
+Last verified: 2026-07-11
 
-Claude uses a single global price. Cache write = 1.25× input (5m) / 2× input (1h);
-cache read = 0.1× input. Token Watch uses the **cache-read** (hit) price for
-`cacheRead` tokens and the **base input** price for both `input` and `cacheWrite`.
+Claude uses a single global price. Cache read = 0.1× input. Cache write 5m =
+1.25× input; cache write 1h = 2× input. Token Watch uses the **cache-read** (hit)
+price for `cacheRead` tokens, the **5m cache-write** price for the 5m portion of
+`cacheWrite`, and the **1h cache-write** price for the 1h portion. Claude Code
+transcripts report the TTL split as `cache_creation.ephemeral_1h_input_tokens` and
+`ephemeral_5m_input_tokens`; other providers don't, so their entire `cacheWrite`
+is charged at the 5m rate (which defaults to base input for non-Claude models).
 
-| Model                       | Input / MTok | Cached input / MTok | Output / MTok |
-| --------------------------- | -----------: | ------------------: | ------------: |
-| Claude Opus 4.8             | $5.00        | $0.50               | $25.00        |
-| Claude Opus 4.7             | $5.00        | $0.50               | $25.00        |
-| Claude Opus 4.6             | $5.00        | $0.50               | $25.00        |
-| Claude Opus 4.5             | $5.00        | $0.50               | $25.00        |
-| Claude Opus 4.1 [deprecated]| $15.00       | $1.50               | $75.00        |
-| Claude Sonnet 5 (intro, through 2026-08-31) | $2.00 | $0.20       | $10.00        |
-| Claude Sonnet 5 (from 2026-09-01)           | $3.00 | $0.30       | $15.00        |
-| Claude Sonnet 4.6           | $3.00        | $0.30               | $15.00        |
-| Claude Sonnet 4.5           | $3.00        | $0.30               | $15.00        |
-| Claude Haiku 4.5            | $1.00        | $0.10               | $5.00         |
+| Model                       | Input / MTok | Cached input / MTok | Cache write 5m / MTok | Cache write 1h / MTok | Output / MTok |
+| --------------------------- | -----------: | ------------------: | --------------------: | --------------------: | ------------: |
+| Claude Opus 4.8             | $5.00        | $0.50               | $6.25                 | $10.00                | $25.00        |
+| Claude Opus 4.7             | $5.00        | $0.50               | $6.25                 | $10.00                | $25.00        |
+| Claude Opus 4.6             | $5.00        | $0.50               | $6.25                 | $10.00                | $25.00        |
+| Claude Opus 4.5             | $5.00        | $0.50               | $6.25                 | $10.00                | $25.00        |
+| Claude Opus 4.1 [deprecated]| $15.00       | $1.50               | $18.75                | $30.00                | $75.00        |
+| Claude Sonnet 5 (intro, through 2026-08-31) | $2.00 | $0.20       | $2.50                 | $4.00                 | $10.00        |
+| Claude Sonnet 5 (from 2026-09-01)           | $3.00 | $0.30       | $3.75                 | $6.00                 | $15.00        |
+| Claude Sonnet 4.6           | $3.00        | $0.30               | $3.75                 | $6.00                 | $15.00        |
+| Claude Sonnet 4.5           | $3.00        | $0.30               | $3.75                 | $6.00                 | $15.00        |
+| Claude Haiku 4.5            | $1.00        | $0.10               | $1.25                 | $2.00                 | $5.00         |
 
 Notes:
 - Opus 4.7+ and Sonnet 5 use a newer tokenizer (~30% more tokens for the same
@@ -221,7 +233,8 @@ For each `UsageEvent` with a known model, Token Watch computes:
 ```
 cost_usd = ( input       * inputPrice        / 1_000_000 )
          + ( cacheRead   * cachedInputPrice  / 1_000_000 )
-         + ( cacheWrite  * inputPrice        / 1_000_000 )   // conservative: no write premium
+         + ( cacheWrite5m * cacheWrite5mPrice / 1_000_000 )   // 1.25× input for Claude; = input otherwise
+         + ( cacheWrite1h * cacheWrite1hPrice / 1_000_000 )   // 2× input for Claude; = input otherwise
          + ( output      * outputPrice       / 1_000_000 )
          + ( reasoningOutput * outputPrice   / 1_000_000 )   // where separately logged
 ```

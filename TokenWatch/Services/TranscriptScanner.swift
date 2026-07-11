@@ -171,7 +171,8 @@ struct TranscriptScanner: Sendable {
                 input: usage.inputTokens ?? 0,
                 output: usage.outputTokens ?? 0,
                 cacheRead: usage.cacheReadInputTokens ?? 0,
-                cacheWrite: usage.cacheCreationInputTokens ?? 0
+                cacheWrite: usage.cacheCreationInputTokens ?? 0,
+                cacheWrite1h: usage.cacheCreation?.ephemeral1hInputTokens ?? 0
             )
             events.append(
                 UsageEvent(
@@ -403,12 +404,24 @@ private struct ClaudeUsage: Decodable {
     let outputTokens: Int?
     let cacheReadInputTokens: Int?
     let cacheCreationInputTokens: Int?
+    let cacheCreation: ClaudeCacheCreation?
 
     enum CodingKeys: String, CodingKey {
         case inputTokens = "input_tokens"
         case outputTokens = "output_tokens"
         case cacheReadInputTokens = "cache_read_input_tokens"
         case cacheCreationInputTokens = "cache_creation_input_tokens"
+        case cacheCreation = "cache_creation"
+    }
+}
+
+private struct ClaudeCacheCreation: Decodable {
+    let ephemeral1hInputTokens: Int?
+    let ephemeral5mInputTokens: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case ephemeral1hInputTokens = "ephemeral_1h_input_tokens"
+        case ephemeral5mInputTokens = "ephemeral_5m_input_tokens"
     }
 }
 

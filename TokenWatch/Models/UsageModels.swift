@@ -80,6 +80,12 @@ struct TokenUsage: Hashable, Sendable {
     var output: Int = 0
     var cacheRead: Int = 0
     var cacheWrite: Int = 0
+    /// Portion of `cacheWrite` written with a 1-hour TTL. Claude Code
+    /// transcripts break this out as `cache_creation.ephemeral_1h_input_tokens`;
+    /// it is priced at 2× input vs 1.25× for the 5-minute TTL. Other providers
+    /// report 0 here (no TTL split available), so their entire `cacheWrite` is
+    /// charged at the 5m rate.
+    var cacheWrite1h: Int = 0
     var reasoningOutput: Int = 0
     var recordedTotal: Int = 0
 
@@ -88,6 +94,7 @@ struct TokenUsage: Hashable, Sendable {
         output: Int = 0,
         cacheRead: Int = 0,
         cacheWrite: Int = 0,
+        cacheWrite1h: Int = 0,
         reasoningOutput: Int = 0,
         recordedTotal: Int? = nil
     ) {
@@ -95,11 +102,20 @@ struct TokenUsage: Hashable, Sendable {
         self.output = max(output, 0)
         self.cacheRead = max(cacheRead, 0)
         self.cacheWrite = max(cacheWrite, 0)
+        self.cacheWrite1h = min(max(cacheWrite1h, 0), self.cacheWrite)
         self.reasoningOutput = max(reasoningOutput, 0)
         self.recordedTotal = max(recordedTotal ?? self.input + self.output + self.cacheRead + self.cacheWrite, 0)
     }
 
     static let zero = TokenUsage()
+
+    /// 5-minute-TTL portion of `cacheWrite` (the remainder after 1h).
+    var cacheWrite5m: Int { cacheWrite - cacheWrite1h }
+
+    /// Input tokens for display: `input` + `cacheWrite`, since cache write is
+    /// input-side spend priced at the input rate family. The UI shows this
+    /// merged value so the write-premium bucket is not hidden from the user.
+    var displayInput: Int { input + cacheWrite }
 
     static func + (lhs: TokenUsage, rhs: TokenUsage) -> TokenUsage {
         TokenUsage(
@@ -107,6 +123,7 @@ struct TokenUsage: Hashable, Sendable {
             output: lhs.output + rhs.output,
             cacheRead: lhs.cacheRead + rhs.cacheRead,
             cacheWrite: lhs.cacheWrite + rhs.cacheWrite,
+            cacheWrite1h: lhs.cacheWrite1h + rhs.cacheWrite1h,
             reasoningOutput: lhs.reasoningOutput + rhs.reasoningOutput,
             recordedTotal: lhs.recordedTotal + rhs.recordedTotal
         )
@@ -116,6 +133,7 @@ struct TokenUsage: Hashable, Sendable {
         let valuesAreMonotonic =
             input >= previous.input && output >= previous.output &&
             cacheRead >= previous.cacheRead && cacheWrite >= previous.cacheWrite &&
+            cacheWrite1h >= previous.cacheWrite1h &&
             reasoningOutput >= previous.reasoningOutput && recordedTotal >= previous.recordedTotal
 
         guard valuesAreMonotonic else { return nil }
@@ -125,6 +143,7 @@ struct TokenUsage: Hashable, Sendable {
             output: output - previous.output,
             cacheRead: cacheRead - previous.cacheRead,
             cacheWrite: cacheWrite - previous.cacheWrite,
+            cacheWrite1h: cacheWrite1h - previous.cacheWrite1h,
             reasoningOutput: reasoningOutput - previous.reasoningOutput,
             recordedTotal: recordedTotal - previous.recordedTotal
         )

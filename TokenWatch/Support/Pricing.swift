@@ -16,11 +16,15 @@ struct Pricing {
     struct Rate: Sendable, Hashable {
         let inputPerMTok: Double
         let cachedInputPerMTok: Double
+        let cacheWrite5mPerMTok: Double
+        let cacheWrite1hPerMTok: Double
         let outputPerMTok: Double
 
-        init(inputPerMTok: Double, cachedInputPerMTok: Double, outputPerMTok: Double) {
+        init(inputPerMTok: Double, cachedInputPerMTok: Double, cacheWrite5mPerMTok: Double? = nil, cacheWrite1hPerMTok: Double? = nil, outputPerMTok: Double) {
             self.inputPerMTok = max(inputPerMTok, 0)
             self.cachedInputPerMTok = max(cachedInputPerMTok, 0)
+            self.cacheWrite5mPerMTok = max(cacheWrite5mPerMTok ?? inputPerMTok, 0)
+            self.cacheWrite1hPerMTok = max(cacheWrite1hPerMTok ?? inputPerMTok, 0)
             self.outputPerMTok = max(outputPerMTok, 0)
         }
     }
@@ -53,26 +57,27 @@ struct Pricing {
         var list: [Entry] = []
 
         // Anthropic — Claude
-        // Source: https://docs.anthropic.com/en/docs/about-claude/pricing (2026-07-09)
-        // Cache read = 0.1× input. Token Watch charges cache writes at the base
-        // input rate (no write premium modeled).
-        list.append(.init(matchers: ["claude-opus-4-8", "claude-opus-4.8", "opus-4-8"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, outputPerMTok: 25.00), displayName: "Claude Opus 4.8"))
-        list.append(.init(matchers: ["claude-opus-4-7", "claude-opus-4.7", "opus-4-7"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, outputPerMTok: 25.00), displayName: "Claude Opus 4.7"))
-        list.append(.init(matchers: ["claude-opus-4-6", "claude-opus-4.6", "opus-4-6"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, outputPerMTok: 25.00), displayName: "Claude Opus 4.6"))
-        list.append(.init(matchers: ["claude-opus-4-5", "claude-opus-4.5", "opus-4-5"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, outputPerMTok: 25.00), displayName: "Claude Opus 4.5"))
-        list.append(.init(matchers: ["claude-opus-4-1", "claude-opus-4.1", "opus-4-1"], rate: .init(inputPerMTok: 15.00, cachedInputPerMTok: 1.50, outputPerMTok: 75.00), displayName: "Claude Opus 4.1"))
-        list.append(.init(matchers: ["claude-opus-4", "opus-4"], rate: .init(inputPerMTok: 15.00, cachedInputPerMTok: 1.50, outputPerMTok: 75.00), displayName: "Claude Opus 4"))
-        list.append(.init(matchers: ["claude-fable-5", "fable-5"], rate: .init(inputPerMTok: 10.00, cachedInputPerMTok: 1.00, outputPerMTok: 50.00), displayName: "Claude Fable 5"))
-        list.append(.init(matchers: ["claude-mythos-5", "mythos-5"], rate: .init(inputPerMTok: 10.00, cachedInputPerMTok: 1.00, outputPerMTok: 50.00), displayName: "Claude Mythos 5"))
+        // Source: https://platform.claude.com/docs/en/about-claude/pricing (2026-07-11)
+        // Cache read = 0.1× input. Cache write 5m = 1.25× input, 1h = 2× input.
+        // Other providers do not publish a distinct write rate, so their
+        // cacheWrite defaults to the base input rate via the Rate init.
+        list.append(.init(matchers: ["claude-opus-4-8", "claude-opus-4.8", "opus-4-8"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, cacheWrite5mPerMTok: 6.25, cacheWrite1hPerMTok: 10.00, outputPerMTok: 25.00), displayName: "Claude Opus 4.8"))
+        list.append(.init(matchers: ["claude-opus-4-7", "claude-opus-4.7", "opus-4-7"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, cacheWrite5mPerMTok: 6.25, cacheWrite1hPerMTok: 10.00, outputPerMTok: 25.00), displayName: "Claude Opus 4.7"))
+        list.append(.init(matchers: ["claude-opus-4-6", "claude-opus-4.6", "opus-4-6"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, cacheWrite5mPerMTok: 6.25, cacheWrite1hPerMTok: 10.00, outputPerMTok: 25.00), displayName: "Claude Opus 4.6"))
+        list.append(.init(matchers: ["claude-opus-4-5", "claude-opus-4.5", "opus-4-5"], rate: .init(inputPerMTok: 5.00, cachedInputPerMTok: 0.50, cacheWrite5mPerMTok: 6.25, cacheWrite1hPerMTok: 10.00, outputPerMTok: 25.00), displayName: "Claude Opus 4.5"))
+        list.append(.init(matchers: ["claude-opus-4-1", "claude-opus-4.1", "opus-4-1"], rate: .init(inputPerMTok: 15.00, cachedInputPerMTok: 1.50, cacheWrite5mPerMTok: 18.75, cacheWrite1hPerMTok: 30.00, outputPerMTok: 75.00), displayName: "Claude Opus 4.1"))
+        list.append(.init(matchers: ["claude-opus-4", "opus-4"], rate: .init(inputPerMTok: 15.00, cachedInputPerMTok: 1.50, cacheWrite5mPerMTok: 18.75, cacheWrite1hPerMTok: 30.00, outputPerMTok: 75.00), displayName: "Claude Opus 4"))
+        list.append(.init(matchers: ["claude-fable-5", "fable-5"], rate: .init(inputPerMTok: 10.00, cachedInputPerMTok: 1.00, cacheWrite5mPerMTok: 12.50, cacheWrite1hPerMTok: 20.00, outputPerMTok: 50.00), displayName: "Claude Fable 5"))
+        list.append(.init(matchers: ["claude-mythos-5", "mythos-5"], rate: .init(inputPerMTok: 10.00, cachedInputPerMTok: 1.00, cacheWrite5mPerMTok: 12.50, cacheWrite1hPerMTok: 20.00, outputPerMTok: 50.00), displayName: "Claude Mythos 5"))
         // Sonnet 5 introductory ($2/$10) is in effect through 2026-08-31; from
         // 2026-09-01 it becomes $3/$15. Token Watch uses the introductory rate
         // while it is active; update on the cutover date.
-        list.append(.init(matchers: ["claude-sonnet-5", "sonnet-5"], rate: .init(inputPerMTok: 2.00, cachedInputPerMTok: 0.20, outputPerMTok: 10.00), displayName: "Claude Sonnet 5"))
-        list.append(.init(matchers: ["claude-sonnet-4-6", "claude-sonnet-4.6", "sonnet-4-6"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, outputPerMTok: 15.00), displayName: "Claude Sonnet 4.6"))
-        list.append(.init(matchers: ["claude-sonnet-4-5", "claude-sonnet-4.5", "sonnet-4-5"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, outputPerMTok: 15.00), displayName: "Claude Sonnet 4.5"))
-        list.append(.init(matchers: ["claude-sonnet-4"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, outputPerMTok: 15.00), displayName: "Claude Sonnet 4"))
-        list.append(.init(matchers: ["claude-haiku-4-5", "claude-haiku-4.5", "haiku-4-5"], rate: .init(inputPerMTok: 1.00, cachedInputPerMTok: 0.10, outputPerMTok: 5.00), displayName: "Claude Haiku 4.5"))
-        list.append(.init(matchers: ["claude-haiku-3-5", "claude-haiku-3.5", "haiku-3-5"], rate: .init(inputPerMTok: 0.80, cachedInputPerMTok: 0.08, outputPerMTok: 4.00), displayName: "Claude Haiku 3.5"))
+        list.append(.init(matchers: ["claude-sonnet-5", "sonnet-5"], rate: .init(inputPerMTok: 2.00, cachedInputPerMTok: 0.20, cacheWrite5mPerMTok: 2.50, cacheWrite1hPerMTok: 4.00, outputPerMTok: 10.00), displayName: "Claude Sonnet 5"))
+        list.append(.init(matchers: ["claude-sonnet-4-6", "claude-sonnet-4.6", "sonnet-4-6"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, cacheWrite5mPerMTok: 3.75, cacheWrite1hPerMTok: 6.00, outputPerMTok: 15.00), displayName: "Claude Sonnet 4.6"))
+        list.append(.init(matchers: ["claude-sonnet-4-5", "claude-sonnet-4.5", "sonnet-4-5"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, cacheWrite5mPerMTok: 3.75, cacheWrite1hPerMTok: 6.00, outputPerMTok: 15.00), displayName: "Claude Sonnet 4.5"))
+        list.append(.init(matchers: ["claude-sonnet-4"], rate: .init(inputPerMTok: 3.00, cachedInputPerMTok: 0.30, cacheWrite5mPerMTok: 3.75, cacheWrite1hPerMTok: 6.00, outputPerMTok: 15.00), displayName: "Claude Sonnet 4"))
+        list.append(.init(matchers: ["claude-haiku-4-5", "claude-haiku-4.5", "haiku-4-5"], rate: .init(inputPerMTok: 1.00, cachedInputPerMTok: 0.10, cacheWrite5mPerMTok: 1.25, cacheWrite1hPerMTok: 2.00, outputPerMTok: 5.00), displayName: "Claude Haiku 4.5"))
+        list.append(.init(matchers: ["claude-haiku-3-5", "claude-haiku-3.5", "haiku-3-5"], rate: .init(inputPerMTok: 0.80, cachedInputPerMTok: 0.08, cacheWrite5mPerMTok: 1.00, cacheWrite1hPerMTok: 1.60, outputPerMTok: 4.00), displayName: "Claude Haiku 3.5"))
 
         // OpenAI — GPT-5 series
         // Source: https://platform.openai.com/docs/pricing (2026-07-09)
@@ -179,17 +184,21 @@ struct Pricing {
         }
     }
 
-    /// USD cost for a single token-usage record at the given rate. Charges
-    /// cache writes at the base input rate (no write premium modeled) and folds
-    /// reasoning output into the output cost where a provider splits it out.
+    /// USD cost for a single token-usage record at the given rate. Splits
+    /// `cacheWrite` into its 1h (2× input for Claude) and 5m (1.25× input)
+    /// portions using `cacheWrite1h`; providers that don't report a TTL split
+    /// have `cacheWrite1h = 0`, so the entire `cacheWrite` is charged at the
+    /// 5m rate (which defaults to the base input rate for non-Claude models).
+    /// Folds reasoning output into the output cost where a provider splits it.
     static func cost(of usage: TokenUsage, at rate: Rate) -> Double {
         let mtok = 1_000_000.0
         let inputCost = Double(usage.input) * rate.inputPerMTok / mtok
         let cacheReadCost = Double(usage.cacheRead) * rate.cachedInputPerMTok / mtok
-        let cacheWriteCost = Double(usage.cacheWrite) * rate.inputPerMTok / mtok
+        let cacheWrite5mCost = Double(usage.cacheWrite5m) * rate.cacheWrite5mPerMTok / mtok
+        let cacheWrite1hCost = Double(usage.cacheWrite1h) * rate.cacheWrite1hPerMTok / mtok
         let outputCost = Double(usage.output) * rate.outputPerMTok / mtok
         let reasoningCost = Double(usage.reasoningOutput) * rate.outputPerMTok / mtok
-        return inputCost + cacheReadCost + cacheWriteCost + outputCost + reasoningCost
+        return inputCost + cacheReadCost + cacheWrite5mCost + cacheWrite1hCost + outputCost + reasoningCost
     }
 }
 
