@@ -1,3 +1,4 @@
+import AppKit
 import Charts
 import SwiftUI
 
@@ -21,6 +22,7 @@ private enum DashboardSection: String, CaseIterable, Identifiable {
 
 struct DashboardView: View {
     @ObservedObject var store: UsageStore
+    @Environment(\.openWindow) private var openWindow
     @State private var section: DashboardSection? = .overview
     @SceneStorage("TokenWatch.dashboard.range") private var selectedRangeRaw = UsageRange.today.rawValue
 
@@ -57,6 +59,16 @@ struct DashboardView: View {
                 .tint(Color(white: 0.28))
                 .labelsHidden()
                 .frame(width: 300)
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    openWindow(id: "quick-view")
+                    NSApp.activate(ignoringOtherApps: true)
+                } label: {
+                    Label("Open Quick View", systemImage: "macwindow")
+                }
+                .help("Open the menu-bar view in a persistent window")
             }
 
             ToolbarItem(placement: .primaryAction) {
