@@ -22,10 +22,10 @@ private enum DashboardSection: String, CaseIterable, Identifiable {
 struct DashboardView: View {
     @ObservedObject var store: UsageStore
     @State private var section: DashboardSection? = .overview
-    @SceneStorage("TokenWatch.dashboard.range") private var selectedRangeRaw = UsageRange.week.rawValue
+    @SceneStorage("TokenWatch.dashboard.range") private var selectedRangeRaw = UsageRange.today.rawValue
 
     private var selectedRange: UsageRange {
-        UsageRange(rawValue: selectedRangeRaw) ?? .week
+        UsageRange(rawValue: selectedRangeRaw) ?? .today
     }
 
     var body: some View {

@@ -63,7 +63,7 @@ private struct WaveFlipNumber: View {
 struct MenuBarPopover: View {
     @ObservedObject var store: UsageStore
     @Environment(\.openWindow) private var openWindow
-    @State private var range: UsageRange = .week
+    @State private var range: UsageRange = .today
 
     private var snapshot: UsageSnapshot { store.snapshot(for: range) }
 
