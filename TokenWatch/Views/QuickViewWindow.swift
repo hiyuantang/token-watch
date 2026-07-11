@@ -7,6 +7,7 @@ struct QuickViewWindow: View {
 
     var body: some View {
         MenuBarPopover(store: store)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
             .overlay(alignment: .topTrailing) {
                 Button {
                     alwaysOnTop.toggle()
@@ -62,7 +63,11 @@ private final class WindowLevelView: NSView {
         guard let window = window else { return }
         window.level = level
         window.styleMask.remove(.resizable)
+        window.styleMask.insert(.borderless)
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.hasShadow = true
     }
 }
