@@ -14,53 +14,6 @@ struct MenuBarLabel: View {
     }
 }
 
-/// Renders a formatted integer as per-digit characters so each digit can flip
-/// individually with a staggered (left-to-right) wave when the value changes.
-/// Unchanged digits do not animate. The wave is produced by indexing only the
-/// digit positions that changed and offsetting their animation by position.
-private struct WaveFlipNumber: View {
-    let value: Int
-    let formatter: NumberFormatter
-
-    @State private var previousDigits: [Character] = []
-
-    private var currentDigits: [Character] {
-        Array(formatter.string(for: value) ?? "")
-    }
-
-    private static let digitDelay: CGFloat = 0.07
-
-    var body: some View {
-        let digits = currentDigits
-        let prev = previousDigits
-        // Index changed positions relative to the start of the whole string so
-        // the wave always reads left-to-right regardless of which digits moved.
-        let changedIndexes: Set<Int> = {
-            guard !prev.isEmpty, prev.count == digits.count else { return [] }
-            return Set(zip(digits, prev).enumerated().compactMap { idx, pair in
-                pair.0 != pair.1 ? idx : nil
-            })
-        }()
-
-        HStack(spacing: 0) {
-            ForEach(Array(digits.enumerated()), id: \.offset) { idx, char in
-                Text(String(char))
-                    .contentTransition(.numericText())
-                    .animation(
-                        changedIndexes.contains(idx)
-                            ? .easeInOut(duration: 0.42)
-                                .delay(Double(idx) * Self.digitDelay)
-                            : nil,
-                        value: value
-                    )
-                    .id(char)
-            }
-        }
-        .onAppear { previousDigits = digits }
-        .onChange(of: value) { _, _ in previousDigits = digits }
-    }
-}
-
 struct MenuBarPopover: View {
     @ObservedObject var store: UsageStore
     @Environment(\.openWindow) private var openWindow
@@ -98,11 +51,13 @@ struct MenuBarPopover: View {
                 Text("Recorded tokens")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                WaveFlipNumber(value: snapshot.usage.recordedTotal, formatter: Self.fullFormatter)
+                Text(TokenFormatting.full(snapshot.usage.recordedTotal))
                     .font(.system(size: 46, weight: .bold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.45), value: snapshot.usage.recordedTotal)
             }
 
             PopoverBreakdown(
@@ -173,12 +128,6 @@ struct MenuBarPopover: View {
         .padding(20)
         .frame(width: 400)
     }
-
-    private static let fullFormatter: NumberFormatter = {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return f
-    }()
 }
 
 private enum PopoverBreakdownMetric: String, CaseIterable, Identifiable {
