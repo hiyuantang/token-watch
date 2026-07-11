@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Sendable {
     case claudeCode
@@ -20,6 +21,16 @@ enum UsageProvider: String, CaseIterable, Codable, Hashable, Identifiable, Senda
         case .claudeCode: "projects"
         case .codex: "sessions"
         case .openCode: "."
+        }
+    }
+}
+
+extension UsageProvider {
+    var tint: Color {
+        switch self {
+        case .claudeCode: .orange
+        case .codex: .blue
+        case .openCode: .green
         }
     }
 }

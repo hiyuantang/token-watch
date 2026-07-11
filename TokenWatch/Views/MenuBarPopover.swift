@@ -127,6 +127,7 @@ struct MenuBarPopover: View {
                             .monospacedDigit()
                     }
                     .font(.callout)
+                    .foregroundStyle(provider.provider.tint)
                 }
             }
 
@@ -154,7 +155,7 @@ struct MenuBarPopover: View {
                             : Double(model.usage.recordedTotal) / Double(totalRecorded)
                         HStack(spacing: 8) {
                             Image(systemName: model.provider == .claudeCode ? "sparkles" : (model.provider == .codex ? "terminal" : "curlybraces"))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(model.provider.tint)
                                 .frame(width: 16)
                             Text(Pricing.displayName(for: model.model))
                                 .font(.callout)

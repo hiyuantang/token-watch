@@ -127,6 +127,7 @@ private struct OverviewView: View {
                         ForEach(snapshot.providers) { provider in
                             HStack {
                                 Label(provider.provider.displayName, systemImage: providerSymbol(provider.provider))
+                                    .foregroundStyle(provider.provider.tint)
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 2) {
                                     HStack(spacing: 4) {
@@ -210,28 +211,33 @@ private struct ActivityChart: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 Chart {
                     ForEach(slots, id: \.self) { slot in
-                        PointMark(x: .value("Time slot", slot), y: .value("Baseline", 0))
+                        PointMark(x: .value("Time slot", slotKey(for: slot)), y: .value("Baseline", 0))
                             .opacity(0)
                     }
                     ForEach(snapshot.timeline) { bucket in
                         BarMark(
-                            x: .value(axisTitle, bucket.date),
+                            x: .value(axisTitle, slotKey(for: bucket.date)),
                             y: .value("Recorded tokens", bucket.recordedTotal),
                             width: .fixed(barWidth)
                         )
                         .foregroundStyle(by: .value("Provider", bucket.provider.displayName))
                     }
                 }
+                .chartForegroundStyleScale(domain: UsageProvider.allCases.map(\.displayName), range: UsageProvider.allCases.map(\.tint))
                 .chartXAxis {
                     AxisMarks(values: axisValues) { value in
                         AxisGridLine()
-                        AxisValueLabel(format: axisFormat, centered: false)
+                        AxisValueLabel(centered: true, collisionResolution: .disabled) {
+                            if let key = value.as(String.self), let date = slotDates[key] {
+                                Text(date, format: axisFormat)
+                            }
+                        }
                     }
                 }
                 .chartXScale(
                     range: .plotDimension(
-                        startPadding: barWidth / 2 + 12,
-                        endPadding: barWidth / 2 + 12
+                        startPadding: barWidth / 2 + 8,
+                        endPadding: barWidth / 2 + 8
                     )
                 )
                 .chartYAxis {
@@ -260,12 +266,20 @@ private struct ActivityChart: View {
         }
     }
 
-    private var axisValues: [Date] {
+    private var axisValues: [String] {
         switch snapshot.range {
-        case .today, .day: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? $0.element : nil }
-        case .month: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? $0.element : nil }
-        case .week, .total: slots
+        case .today, .day: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? slotKey(for: $0.element) : nil }
+        case .month: slots.enumerated().compactMap { $0.offset.isMultiple(of: 3) ? slotKey(for: $0.element) : nil }
+        case .week, .total: slots.map(slotKey)
         }
+    }
+
+    private var slotDates: [String: Date] {
+        Dictionary(uniqueKeysWithValues: slots.map { (slotKey(for: $0), $0) })
+    }
+
+    private func slotKey(for date: Date) -> String {
+        String(date.timeIntervalSinceReferenceDate)
     }
 
     private var axisFormat: Date.FormatStyle {
