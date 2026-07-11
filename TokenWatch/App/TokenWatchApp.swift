@@ -32,9 +32,5 @@ struct TokenWatchApp: App {
             DashboardView(store: usageStore)
         }
         .defaultSize(width: 980, height: 660)
-
-        Settings {
-            TokenWatchSettingsView(store: usageStore)
-        }
     }
 }

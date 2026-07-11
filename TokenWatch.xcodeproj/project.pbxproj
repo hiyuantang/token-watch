@@ -15,7 +15,6 @@
 		A10000000000000000000008 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* ModelsView.swift */; };
 
 		A10000000000000000000010 /* MetricCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* MetricCard.swift */; };
-		A10000000000000000000011 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* SettingsView.swift */; };
 		A10000000000000000000012 /* Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* Formatting.swift */; };
 		A10000000000000000000013 /* UsageScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* UsageScannerTests.swift */; };
 		A10000000000000000000014 /* UsageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* UsageSnapshotTests.swift */; };
@@ -39,7 +38,6 @@
 		A20000000000000000000008 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 
 		A20000000000000000000010 /* MetricCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCard.swift; sourceTree = "<group>"; };
-		A20000000000000000000011 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatting.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* UsageScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageScannerTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000014 /* UsageSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageSnapshotTests.swift; sourceTree = "<group>"; };
@@ -64,7 +62,7 @@
 		A30000000000000000000006 /* Models */ = {isa = PBXGroup; children = (A20000000000000000000002 /* UsageModels.swift */); path = Models; sourceTree = "<group>"; };
 		A30000000000000000000007 /* Services */ = {isa = PBXGroup; children = (A20000000000000000000004 /* TranscriptScanner.swift */, A20000000000000000000019 /* TranscriptWatcher.swift */, A20000000000000000000020 /* OpenCodeScanner.swift */, A20000000000000000000021 /* ProviderPaths.swift */); path = Services; sourceTree = "<group>"; };
 		A30000000000000000000008 /* Stores */ = {isa = PBXGroup; children = (A20000000000000000000005 /* UsageStore.swift */); path = Stores; sourceTree = "<group>"; };
-		A30000000000000000000009 /* Views */ = {isa = PBXGroup; children = (A20000000000000000000006 /* MenuBarPopover.swift */, A20000000000000000000007 /* DashboardView.swift */, A20000000000000000000008 /* ModelsView.swift */, A20000000000000000000010 /* MetricCard.swift */, A20000000000000000000011 /* SettingsView.swift */); path = Views; sourceTree = "<group>"; };
+		A30000000000000000000009 /* Views */ = {isa = PBXGroup; children = (A20000000000000000000006 /* MenuBarPopover.swift */, A20000000000000000000007 /* DashboardView.swift */, A20000000000000000000008 /* ModelsView.swift */, A20000000000000000000010 /* MetricCard.swift */); path = Views; sourceTree = "<group>"; };
 		A30000000000000000000010 /* Support */ = {isa = PBXGroup; children = (A20000000000000000000012 /* Formatting.swift */, A20000000000000000000025 /* Pricing.swift */); path = Support; sourceTree = "<group>"; };
 
 		A40000000000000000000001 /* TokenWatch */ = {isa = PBXNativeTarget; buildConfigurationList = A50000000000000000000002; buildPhases = (A60000000000000000000001 /* Sources */, A60000000000000000000002 /* Frameworks */, A60000000000000000000003 /* Resources */); buildRules = (); dependencies = (); name = TokenWatch; productName = TokenWatch; productReference = A20000000000000000000016 /* TokenWatch.app */; productType = "com.apple.product-type.application"; };

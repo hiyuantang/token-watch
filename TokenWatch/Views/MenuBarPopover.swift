@@ -202,11 +202,6 @@ struct MenuBarPopover: View {
                 .help("Refresh local transcript metadata")
                 .disabled(store.isRefreshing)
 
-                SettingsLink {
-                    Image(systemName: "gearshape")
-                }
-                .help("Open Token Watch settings")
-
                 Button {
                     NSApp.terminate(nil)
                 } label: {

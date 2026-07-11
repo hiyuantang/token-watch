@@ -32,7 +32,7 @@ xcodebuild ... test -only-testing:TokenWatchTests/UsageScannerTests/testClaudeAs
 
 ## Architecture
 
-- `TokenWatch/App/TokenWatchApp.swift` — `@main`. `LSUIElement` (menu-bar only, no Dock). Three scenes: `MenuBarExtra` (`.window` style), `WindowGroup("dashboard")`, `Settings`. Owns `UsageStore` as `@StateObject` and calls `store.start()` in `init`.
+- `TokenWatch/App/TokenWatchApp.swift` — `@main`. `LSUIElement` (menu-bar only, no Dock). Two scenes: `MenuBarExtra` (`.window` style) and `WindowGroup("dashboard")`. Owns `UsageStore` as `@StateObject` and calls `store.start()` in `init`.
 - `TokenWatch/Stores/UsageStore.swift` — `@MainActor final class ObservableObject`. `start()` registers one `FSEventStream` per provider and runs `refresh()`. `refresh()` runs a full scan inside `Task.detached(priority: .utility)`. `refreshProvider(_)` does an incremental single-provider rescan (used by the watcher so one provider's change doesn't rescan the other two). `snapshot(for:)` builds `UsageSnapshot` and computes cost in the same pass via `Pricing.rate(for:)`.
 - `TokenWatch/Services/TranscriptScanner.swift` — Reads JSONL as byte chunks (`FileHandle` 64KB, line-by-line). `scan(claudeRoot:codexRoot:openCodeRoot:)` for all three; `scanProvider(_:root:)` for the watcher path. Three private impls:
   - **Claude**: dedup by message `uuid` (fallback `sessionId|timestamp|message.id`); skip `<synthetic>` model entries; only `type == "assistant"` with `message.usage`.

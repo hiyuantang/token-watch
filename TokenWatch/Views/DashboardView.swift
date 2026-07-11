@@ -4,6 +4,7 @@ import SwiftUI
 private enum DashboardSection: String, CaseIterable, Identifiable {
     case overview
     case models
+    case about
 
     var id: String { rawValue }
 
@@ -13,6 +14,7 @@ private enum DashboardSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "rectangle.3.group"
         case .models: "cpu"
+        case .about: "info.circle"
         }
     }
 }
@@ -40,6 +42,8 @@ struct DashboardView: View {
                 OverviewView(snapshot: store.snapshot(for: selectedRange))
             case .models:
                 ModelsView(snapshot: store.snapshot(for: selectedRange))
+            case .about:
+                AboutView()
             }
         }
         .toolbar {
@@ -62,12 +66,6 @@ struct DashboardView: View {
                 }
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(store.isRefreshing)
-            }
-
-            ToolbarItem(placement: .secondaryAction) {
-                SettingsLink {
-                    Label("Settings", systemImage: "gearshape")
-                }
             }
         }
     }
@@ -139,19 +137,34 @@ private struct OverviewView: View {
                         )
                         .frame(maxWidth: .infinity, minHeight: 220)
                     } else {
-                        Chart(snapshot.timeline) { bucket in
-                            BarMark(
-                                x: .value(
-                                    snapshot.range == .day ? "Hour" : (snapshot.range == .total ? "Month" : "Day"),
-                                    bucket.date
-                                ),
-                                y: .value("Recorded tokens", bucket.recordedTotal)
-                            )
-                            .foregroundStyle(by: .value("Provider", bucket.provider.displayName))
+                        let uniqueDateCount = Set(snapshot.timeline.map(\.date)).count
+                        let chartWidth = max(700, CGFloat(uniqueDateCount) * 30)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            Chart(snapshot.timeline) { bucket in
+                                BarMark(
+                                    x: .value(
+                                        snapshot.range == .day ? "Hour" : (snapshot.range == .total ? "Month" : "Day"),
+                                        bucket.date
+                                    ),
+                                    y: .value("Recorded tokens", bucket.recordedTotal),
+                                    width: .ratio(0.85)
+                                )
+                                .foregroundStyle(by: .value("Provider", bucket.provider.displayName))
+                            }
+                            .chartYAxis {
+                                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                                    AxisGridLine()
+                                    AxisValueLabel {
+                                        if let val = value.as(Int.self) {
+                                            Text(TokenFormatting.compact(val))
+                                        }
+                                    }
+                                }
+                            }
+                            .chartLegend(position: .bottom, alignment: .leading)
+                            .frame(width: chartWidth, height: 250)
+                            .accessibilityLabel("Token activity chart")
                         }
-                        .chartLegend(position: .bottom, alignment: .leading)
-                        .frame(height: 250)
-                        .accessibilityLabel("Token activity chart")
                     }
                 }
 
@@ -197,5 +210,31 @@ private func providerSymbol(_ provider: UsageProvider) -> String {
     case .claudeCode: "sparkles"
     case .codex: "terminal"
     case .openCode: "curlybraces"
+    }
+}
+
+private struct AboutView: View {
+    var body: some View {
+        Form {
+            Section("Privacy boundary") {
+                Label("No network entitlement or network features", systemImage: "network.slash")
+                Label("No prompts, responses, source files, paths, or session IDs are shown or persisted", systemImage: "lock")
+                Label("No account, credential, quota, or rate-limit tracking", systemImage: "nosign")
+            }
+
+            Section("Cost estimate") {
+                Text("Estimated cost multiplies observed token totals by a static, hand-maintained catalog of published API rates (see docs/pricing.md). It makes no network requests and is not an invoice; batch, peak/off-peak, fast-mode, data-residency, and write-premium pricing are not modeled.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Affiliation") {
+                Text("Token Watch is not affiliated with or endorsed by Anthropic, OpenAI, Z.ai, Moonshot, MiniMax, DeepSeek, or OpenCode.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("About")
     }
 }
