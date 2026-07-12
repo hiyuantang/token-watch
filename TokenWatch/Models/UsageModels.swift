@@ -43,7 +43,7 @@ extension UsageProvider {
     }
 }
 
-enum UsageRange: Int, CaseIterable, Identifiable, Sendable {
+enum UsageRange: Int, CaseIterable, Hashable, Identifiable, Sendable {
     case today = -1
     case day = 1
     case week = 7

@@ -45,6 +45,23 @@ final class UsageScannerTests: XCTestCase {
         XCTAssertEqual(result.events.map(\.provider), [.codex, .codex, .codex])
     }
 
+    func testClaudeParsesFractionalAndStandardTimestamps() throws {
+        let root = try makeTemporaryDirectory(named: ".claude")
+        let projects = root.appendingPathComponent("projects/session", isDirectory: true)
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+
+        let transcript = """
+        {"type":"assistant","timestamp":"2026-07-09T10:00:00.123Z","sessionId":"session-1","uuid":"message-1","message":{"id":"message-1","model":"claude-test","usage":{"input_tokens":10,"output_tokens":2}}}
+        {"type":"assistant","timestamp":"2026-07-09T10:01:00Z","sessionId":"session-1","uuid":"message-2","message":{"id":"message-2","model":"claude-test","usage":{"input_tokens":20,"output_tokens":3}}}
+        """
+        try transcript.data(using: .utf8)!.write(to: projects.appendingPathComponent("session.jsonl"))
+
+        let result = TranscriptScanner().scan(claudeRoot: root, codexRoot: nil, openCodeRoot: nil)
+
+        XCTAssertEqual(result.events.count, 2)
+        XCTAssertEqual(result.sources.first?.malformedLines, 0)
+    }
+
     func testTargetedInputScanReadsOnlyTheChangedTranscript() throws {
         let root = try makeTemporaryDirectory(named: ".claude")
         let projects = root.appendingPathComponent("projects/session", isDirectory: true)

@@ -20,9 +20,9 @@ struct MenuBarPopover: View {
     @State private var range: UsageRange = .today
     @State private var breakdownMetric: PopoverBreakdownMetric = .tokens
 
-    private var snapshot: UsageSnapshot { store.snapshot(for: range) }
-
     var body: some View {
+        let snapshot = store.snapshot(for: range)
+
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {

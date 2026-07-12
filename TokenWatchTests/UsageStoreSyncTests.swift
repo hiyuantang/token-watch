@@ -4,6 +4,21 @@ import XCTest
 
 @MainActor
 final class UsageStoreSyncTests: XCTestCase {
+    func testSnapshotCacheReusesValuesWithinMinuteAndExpiresAfterward() {
+        let store = UsageStore()
+        let firstDate = Date(timeIntervalSinceReferenceDate: 120.1)
+        let sameMinute = Date(timeIntervalSinceReferenceDate: 179.9)
+        let nextMinute = Date(timeIntervalSinceReferenceDate: 180.1)
+
+        let first = store.snapshot(for: .today, now: firstDate)
+        let cached = store.snapshot(for: .today, now: sameMinute)
+        let refreshed = store.snapshot(for: .today, now: nextMinute)
+
+        XCTAssertEqual(first.generatedAt, firstDate)
+        XCTAssertEqual(cached.generatedAt, firstDate)
+        XCTAssertEqual(refreshed.generatedAt, nextMinute)
+    }
+
     func testManualSyncTriggersRefresh() async {
         let store = UsageStore()
         store.manualSync()

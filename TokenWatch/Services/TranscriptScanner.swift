@@ -147,6 +147,7 @@ struct TranscriptScanner: Sendable {
         source: inout SourceHealth
     ) throws {
         let decoder = JSONDecoder()
+        let timestampParser = TimestampParser()
         try streamLines(in: url) { line in
             guard let record = try? decoder.decode(ClaudeRecord.self, from: line) else {
                 source.malformedLines += 1
@@ -156,7 +157,7 @@ struct TranscriptScanner: Sendable {
             // Claude Code logs synthetic/system-generated assistant events with a "<synthetic>" model
             // and all-zero usage. They carry no real token usage, so skip them to avoid noise.
             if message.model == "<synthetic>" { return }
-            guard let timestamp = parseTimestamp(record.timestamp) else {
+            guard let timestamp = timestampParser.parse(record.timestamp) else {
                 source.malformedLines += 1
                 return
             }
@@ -241,6 +242,7 @@ struct TranscriptScanner: Sendable {
         source: inout SourceHealth
     ) throws {
         let decoder = JSONDecoder()
+        let timestampParser = TimestampParser()
         var model: String?
         var previousTotal: TokenUsage?
         var fallbackFingerprints = Set<String>()
@@ -257,7 +259,7 @@ struct TranscriptScanner: Sendable {
             }
 
             guard record.type == "event_msg", record.payload?.type == "token_count", let info = record.payload?.info else { return }
-            guard let timestamp = parseTimestamp(record.timestamp) else {
+            guard let timestamp = timestampParser.parse(record.timestamp) else {
                 source.malformedLines += 1
                 return
             }
@@ -372,16 +374,22 @@ struct TranscriptScanner: Sendable {
             handler(buffer)
         }
     }
+}
 
-    private func parseTimestamp(_ value: String?) -> Date? {
-        guard let value else { return nil }
-        let fractional = ISO8601DateFormatter()
+private struct TimestampParser {
+    private let fractional: ISO8601DateFormatter
+    private let standard: ISO8601DateFormatter
+
+    init() {
+        fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: value) { return date }
-
-        let standard = ISO8601DateFormatter()
+        standard = ISO8601DateFormatter()
         standard.formatOptions = [.withInternetDateTime]
-        return standard.date(from: value)
+    }
+
+    func parse(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        return fractional.date(from: value) ?? standard.date(from: value)
     }
 }
 

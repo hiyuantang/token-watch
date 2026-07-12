@@ -15,6 +15,7 @@ final class UsageStore: ObservableObject {
     private var pendingInputPaths: [UsageProvider: Set<String>] = [:]
     private var inputScans: [UsageProvider: [String: InputScan]] = [:]
     private var sessionTokens = InMemorySessionTokens()
+    private var snapshotCache: [UsageRange: CachedSnapshot] = [:]
 
     deinit {
         MainActor.assumeIsolated {
@@ -129,7 +130,13 @@ final class UsageStore: ObservableObject {
     }
 
     func snapshot(for range: UsageRange, now: Date = Date()) -> UsageSnapshot {
-        UsageAggregator.snapshot(events: events, range: range, sources: sources, now: now)
+        let minute = Int(now.timeIntervalSinceReferenceDate / 60)
+        if let cached = snapshotCache[range], cached.minute == minute {
+            return cached.snapshot
+        }
+        let snapshot = UsageAggregator.snapshot(events: events, range: range, sources: sources, now: now)
+        snapshotCache[range] = CachedSnapshot(minute: minute, snapshot: snapshot)
+        return snapshot
     }
 
     static func mergedProviderEvents(
@@ -187,6 +194,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func rebuildEvents() {
+        snapshotCache.removeAll(keepingCapacity: true)
         events = inputScans.values
             .flatMap(\.values)
             .flatMap(\.events)
@@ -230,6 +238,7 @@ final class UsageStore: ObservableObject {
     }
 
     private func updateSource(_ source: SourceHealth) {
+        snapshotCache.removeAll(keepingCapacity: true)
         if let index = sources.firstIndex(where: { $0.provider == source.provider }) {
             sources[index] = source
         } else {
@@ -267,6 +276,11 @@ final class UsageStore: ObservableObject {
     private func updateRefreshingState() {
         isRefreshing = fullRefreshInProgress || !refreshingProviders.isEmpty
     }
+
+    private struct CachedSnapshot {
+        let minute: Int
+        let snapshot: UsageSnapshot
+    }
 }
 
 enum UsageAggregator {
@@ -288,6 +302,7 @@ enum UsageAggregator {
         var modelCost: [ModelKey: Double] = [:]
         var modelPriced: [ModelKey: Bool] = [:]
         var unpricedModels = Set<ModelKey>()
+        var pricingLookups: [String: PricingLookup] = [:]
         var sessionTokens = Set<UUID>()
         var timelineTotals: [TimelineKey: Int] = [:]
 
@@ -314,8 +329,16 @@ enum UsageAggregator {
             // non-billable labels (e.g. `codex-auto-review`) resolve to a zero
             // rate but are marked not priced so the UI shows "-" rather than a
             // misleading "$0"; they are NOT counted as unpriced (they are known).
-            if let rate = Pricing.rate(for: event.model) {
-                modelPriced[modelKey] = Pricing.isBillable(for: event.model)
+            let pricing = pricingLookups[event.model] ?? {
+                let lookup = PricingLookup(
+                    rate: Pricing.rate(for: event.model),
+                    billable: Pricing.isBillable(for: event.model)
+                )
+                pricingLookups[event.model] = lookup
+                return lookup
+            }()
+            if let rate = pricing.rate {
+                modelPriced[modelKey] = pricing.billable
                 let inputUSD = Double(event.usage.input) * rate.inputPerMTok / mtok
                 let cacheReadUSD = Double(event.usage.cacheRead) * rate.cachedInputPerMTok / mtok
                 let cacheWrite5mUSD = Double(event.usage.cacheWrite5m) * rate.cacheWrite5mPerMTok / mtok
@@ -456,5 +479,10 @@ enum UsageAggregator {
     private struct TimelineKey: Hashable {
         let date: Date
         let provider: UsageProvider
+    }
+
+    private struct PricingLookup {
+        let rate: Pricing.Rate?
+        let billable: Bool
     }
 }
