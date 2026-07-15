@@ -174,6 +174,45 @@ final class UsageScannerTests: XCTestCase {
         XCTAssertEqual(result.events.map(\.usage.recordedTotal), [8, 2])
     }
 
+    func testCodexInputExcludesCachedTokensAcrossCumulativeDelta() throws {
+        // Codex's `input_tokens` is the total input and already includes
+        // `cached_input_tokens` (total_tokens == input_tokens + output_tokens).
+        // The scanner must move the cached portion out of `input` so the two
+        // buckets are non-overlapping, matching the Claude convention used by
+        // TokenUsage. This guards against a regression where cached tokens were
+        // double-counted in both cost and the cache-read-share denominator.
+        let root = try makeTemporaryDirectory(named: ".codex")
+        let sessions = root.appendingPathComponent("sessions/2026/07/09", isDirectory: true)
+        try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+
+        let transcript = """
+        {"type":"turn_context","timestamp":"2026-07-09T10:00:00Z","payload":{"model":"gpt-5.2"}}
+        {"type":"event_msg","timestamp":"2026-07-09T10:01:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"output_tokens":100,"cached_input_tokens":800,"reasoning_output_tokens":0,"total_tokens":1100},"last_token_usage":{"input_tokens":1000,"output_tokens":100,"cached_input_tokens":800,"reasoning_output_tokens":0,"total_tokens":1100}}}}
+        {"type":"event_msg","timestamp":"2026-07-09T10:02:00Z","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":2000,"output_tokens":150,"cached_input_tokens":1700,"reasoning_output_tokens":0,"total_tokens":2150},"last_token_usage":{"input_tokens":1000,"output_tokens":50,"cached_input_tokens":900,"reasoning_output_tokens":0,"total_tokens":1050}}}}
+        """
+        try transcript.data(using: .utf8)!.write(to: sessions.appendingPathComponent("rollout-cached.jsonl"))
+
+        let result = TranscriptScanner().scan(claudeRoot: nil, codexRoot: root, openCodeRoot: nil)
+
+        // First event: full total. input 1000 - cached 800 = 200 non-cached.
+        XCTAssertEqual(result.events[0].usage.input, 200)
+        XCTAssertEqual(result.events[0].usage.cacheRead, 800)
+        XCTAssertEqual(result.events[0].usage.output, 100)
+        XCTAssertEqual(result.events[0].usage.recordedTotal, 1100)
+
+        // Second event: cumulative delta. non-cached input delta = (2000-1000) - (1700-800) = 100.
+        XCTAssertEqual(result.events[1].usage.input, 100)
+        XCTAssertEqual(result.events[1].usage.cacheRead, 900)
+        XCTAssertEqual(result.events[1].usage.output, 50)
+        XCTAssertEqual(result.events[1].usage.recordedTotal, 1050)
+
+        // Buckets must not overlap: input + cacheRead + output == recordedTotal.
+        for event in result.events {
+            let sum = event.usage.input + event.usage.cacheRead + event.usage.output
+            XCTAssertEqual(sum, event.usage.recordedTotal)
+        }
+    }
+
     private func runSqliteCli(_ dbPath: URL, sql: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")

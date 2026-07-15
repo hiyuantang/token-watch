@@ -314,10 +314,17 @@ struct TranscriptScanner: Sendable {
 
     private func tokenUsage(from info: CodexTokenInfo?) -> TokenUsage? {
         guard let info else { return nil }
+        // Codex's `input_tokens` is the total input and already includes
+        // `cached_input_tokens` (total_tokens == input_tokens + output_tokens).
+        // TokenUsage keeps `input` and `cacheRead` as non-overlapping buckets
+        // (the Claude convention), so move the cached portion out of `input`.
+        // Without this, cached tokens are double-counted in both cost and the
+        // cache-read-share denominator.
+        let cached = info.cachedInputTokens ?? 0
         return TokenUsage(
-            input: info.inputTokens ?? 0,
+            input: max((info.inputTokens ?? 0) - cached, 0),
             output: info.outputTokens ?? 0,
-            cacheRead: info.cachedInputTokens ?? 0,
+            cacheRead: cached,
             reasoningOutput: info.reasoningOutputTokens ?? 0,
             recordedTotal: info.totalTokens
         )

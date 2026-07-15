@@ -315,6 +315,36 @@ final class UsageSnapshotTests: XCTestCase {
         XCTAssertNil(snapshot.cacheReadShare)
     }
 
+    func testCodexCachedInputNotDoubleCountedInCostOrCacheShare() throws {
+        // Codex `input_tokens` includes `cached_input_tokens`. Once the scanner
+        // moves the cached portion into `cacheRead`, cost must bill the non-cached
+        // input at the full input rate and the cached input at the cache-read rate
+        // (not both), and the cache-read share denominator must not overlap.
+        // gpt-5.2: $1.75 in / $0.175 cached / $14.00 out per MTok.
+        let now = ISO8601DateFormatter().date(from: "2026-07-09T16:00:00Z")!
+        let event = UsageEvent(
+            id: UUID(),
+            provider: .codex,
+            timestamp: ISO8601DateFormatter().date(from: "2026-07-09T10:00:00Z")!,
+            model: "gpt-5.2",
+            sessionToken: UUID(),
+            usage: TokenUsage(input: 200, output: 100, cacheRead: 800, cacheWrite: 0, recordedTotal: 1100)
+        )
+        let sources = UsageProvider.allCases.map(SourceHealth.unconfigured)
+
+        let snapshot = UsageAggregator.snapshot(events: [event], range: .day, sources: sources, now: now)
+
+        // 800 / (800 + 200) = 0.8. Before the fix this read 800 / 1800 = 0.444…
+        let cacheShare = try XCTUnwrap(snapshot.cacheReadShare)
+        XCTAssertEqual(cacheShare.value, 0.8, accuracy: 0.0001)
+        XCTAssertFalse(cacheShare.inferred)
+
+        // 200 * 1.75 / 1M + 800 * 0.175 / 1M + 100 * 14.00 / 1M = 0.00189
+        XCTAssertEqual(snapshot.cost.totalUSD, 0.00189, accuracy: 0.000001)
+        XCTAssertEqual(snapshot.cost.inputUSD, 200 * 1.75 / 1_000_000, accuracy: 0.000001)
+        XCTAssertEqual(snapshot.cost.cacheReadUSD, 800 * 0.175 / 1_000_000, accuracy: 0.000001)
+    }
+
     func testCacheShareDenominatorIncludesCacheWrite() throws {
         // cacheRead / (cacheRead + input + cacheWrite). cacheWrite is input-side
         // spend that becomes a future cache hit, so it counts against the rate.
