@@ -245,18 +245,53 @@ private struct ProviderRing: View {
         var id: UsageProvider { provider }
     }
 
+    /// Minimum arc a slice is rendered with, as a fraction of the full circle.
+    /// Anything smaller is bumped up to this floor so sub-pixel slivers stay
+    /// visible on the ring; the true share is still used for the legend and
+    /// accessibility values. Picked at ~3° (0.0083) — large enough to read on
+    /// a 124pt ring yet too small to mislead the eye.
+    private static let minRenderedShare: Double = 3.0 / 360.0
+
     private var slices: [Slice] {
         let values = snapshot.providers.map { ($0.provider, metric.value(for: $0)) }
         let total = values.reduce(0) { $0 + $1.1 }
-
         return values.map { provider, value in
-            let share = total > 0 ? value / total : 0
-            return Slice(provider: provider, share: share)
+            Slice(provider: provider, share: total > 0 ? value / total : 0)
         }
     }
 
     private var visibleSlices: [Slice] {
         slices.filter { $0.share > 0 }
+    }
+
+    /// Slices with their render angle adjusted so sub-pixel slivers still show.
+    /// Each share below `minRenderedShare` is raised to the floor and the
+    /// larger slices are shortened proportionally so the ring still sums to a
+    /// full circle. The original share on `visibleSlices` is untouched and
+    /// drives the legend and accessibility value.
+    private var renderedSlices: [Slice] {
+        let visible = visibleSlices
+        let floorTotal = Double(visible.count) * Self.minRenderedShare
+        let total = visible.map(\.share).reduce(0, +)
+        guard total > floorTotal else {
+            // All slices are floors or the whole ring is tiny; render at floor.
+            return visible.map { Slice(provider: $0.provider, share: Self.minRenderedShare) }
+        }
+        let scalable = total - floorTotal
+        return visible.map { slice in
+            let floored = min(slice.share, Self.minRenderedShare)
+            let above = max(slice.share - Self.minRenderedShare, 0)
+            let share = floored + (scalable > 0 ? above * (total - floorTotal) / scalable : 0)
+            return Slice(provider: slice.provider, share: share)
+        }
+    }
+
+    /// Per-slice angular inset (degrees) shrunk for small arcs so the gap
+    /// between segments never eats a slice narrower than itself.
+    private func inset(for share: Double) -> CGFloat {
+        guard visibleSlices.count > 1 else { return 0 }
+        let degrees = share * 360
+        return CGFloat(min(2.5, max(degrees / 3, 0)))
     }
 
     private var accessibilityValue: String {
@@ -272,13 +307,13 @@ private struct ProviderRing: View {
                 Circle()
                     .stroke(.quaternary, lineWidth: 16)
             } else {
-                Chart(visibleSlices) { slice in
+                Chart(renderedSlices) { slice in
                     SectorMark(
                         angle: .value("Share", slice.share),
                         innerRadius: .ratio(0.72),
-                        angularInset: visibleSlices.count > 1 ? 2.5 : 0
+                        angularInset: inset(for: slice.share)
                     )
-                    .cornerRadius(visibleSlices.count > 1 ? 3 : 0)
+                    .cornerRadius(min(inset(for: slice.share), 3))
                     .foregroundStyle(slice.provider.tint)
                 }
                 .chartLegend(.hidden)
