@@ -167,14 +167,19 @@ final class PricingTests: XCTestCase {
         XCTAssertEqual(cost, 0.0336, accuracy: 0.0001)
     }
 
-    func testReasoningOutputBilledAtOutputRate() {
-        // Codex-style records split reasoning output separately. It should be
-        // billed at the output rate, not the input rate.
-        let usage = TokenUsage(input: 0, output: 100_000, cacheRead: 0, cacheWrite: 0, reasoningOutput: 100_000)
+    func testReasoningOutputIsSubsetOfOutputNotBilledSeparately() {
+        // Per OpenAI's API spec, `output_tokens_details.reasoning_tokens` is a
+        // breakdown OF `output_tokens` (total = input + output, not input +
+        // output + reasoning). Reasoning is already charged inside `output`,
+        // so it must NOT be billed again. A record with output=100K and
+        // reasoning=100K (i.e. all output is reasoning) costs the same as
+        // output=100K with no reasoning.
         let rate = Pricing.rate(for: "gpt-5")! // $1.25 in / $10 out
-        let cost = Pricing.cost(of: usage, at: rate)
-        // 100K output + 100K reasoning at $10/MTok = $2.00
-        XCTAssertEqual(cost, 2.00, accuracy: 0.0001)
+        let withReasoning = TokenUsage(input: 0, output: 100_000, cacheRead: 0, cacheWrite: 0, reasoningOutput: 100_000)
+        let withoutReasoning = TokenUsage(input: 0, output: 100_000, cacheRead: 0, cacheWrite: 0, reasoningOutput: 0)
+        // Both should be 100K * $10/MTok = $1.00 — reasoning is not additive.
+        XCTAssertEqual(Pricing.cost(of: withReasoning, at: rate), 1.00, accuracy: 0.0001)
+        XCTAssertEqual(Pricing.cost(of: withoutReasoning, at: rate), 1.00, accuracy: 0.0001)
     }
 
     func testUnknownRateIsFree() {

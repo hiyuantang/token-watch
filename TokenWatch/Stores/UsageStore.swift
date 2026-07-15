@@ -345,12 +345,11 @@ enum UsageAggregator {
                 let cacheWrite1hUSD = Double(event.usage.cacheWrite1h) * rate.cacheWrite1hPerMTok / mtok
                 let cacheWriteUSD = cacheWrite5mUSD + cacheWrite1hUSD
                 let outputUSD = Double(event.usage.output) * rate.outputPerMTok / mtok
-                let reasoningUSD = Double(event.usage.reasoningOutput) * rate.outputPerMTok / mtok
-                let eventCost = inputUSD + cacheReadUSD + cacheWriteUSD + outputUSD + reasoningUSD
+                let eventCost = inputUSD + cacheReadUSD + cacheWriteUSD + outputUSD
                 costInput += inputUSD
                 costCacheRead += cacheReadUSD
                 costCacheWrite += cacheWriteUSD
-                costOutput += outputUSD + reasoningUSD
+                costOutput += outputUSD
                 providerCost[event.provider, default: 0] += eventCost
                 modelCost[modelKey, default: 0] += eventCost
             } else {

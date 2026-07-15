@@ -208,7 +208,12 @@ struct Pricing {
     /// portions using `cacheWrite1h`; providers that don't report a TTL split
     /// have `cacheWrite1h = 0`, so the entire `cacheWrite` is charged at the
     /// 5m rate (which defaults to the base input rate for non-Claude models).
-    /// Folds reasoning output into the output cost where a provider splits it.
+    /// Reasoning output is a subset of `output_tokens` per OpenAI's API spec
+    /// (`output_tokens_details.reasoning_tokens` is "a detailed breakdown of
+    /// the output tokens"; `total = input + output`, not `input + output +
+    /// reasoning`). It is already charged inside `outputCost`, so we do NOT add
+    /// it again. `reasoningOutput` is retained on `TokenUsage` for display and
+    /// future per-component breakdown, but it is not a separate billed bucket.
     static func cost(of usage: TokenUsage, at rate: Rate) -> Double {
         let mtok = 1_000_000.0
         let inputCost = Double(usage.input) * rate.inputPerMTok / mtok
@@ -216,8 +221,7 @@ struct Pricing {
         let cacheWrite5mCost = Double(usage.cacheWrite5m) * rate.cacheWrite5mPerMTok / mtok
         let cacheWrite1hCost = Double(usage.cacheWrite1h) * rate.cacheWrite1hPerMTok / mtok
         let outputCost = Double(usage.output) * rate.outputPerMTok / mtok
-        let reasoningCost = Double(usage.reasoningOutput) * rate.outputPerMTok / mtok
-        return inputCost + cacheReadCost + cacheWrite5mCost + cacheWrite1hCost + outputCost + reasoningCost
+        return inputCost + cacheReadCost + cacheWrite5mCost + cacheWrite1hCost + outputCost
     }
 }
 

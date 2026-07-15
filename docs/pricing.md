@@ -18,7 +18,7 @@ Watch aggregates:
 | Cached input     | Cache-read / cache-hit input price                  | `usage.cacheRead`        |
 | Cache write 5m  | 5m cache-write price (Claude only; = input otherwise)| `usage.cacheWrite5m`    |
 | Cache write 1h  | 1h cache-write price (Claude only; = input otherwise)| `usage.cacheWrite1h`     |
-| Output           | Standard output price (incl. reasoning where billed)| `usage.output` (+ `reasoningOutput` for Codex-style models that split it out) |
+| Output           | Standard output price (incl. reasoning, which is a subset of output per OpenAI's spec)| `usage.output` |
 
 For **display**, Token Watch merges `input` + `cacheWrite` into a single
 "Input" figure (`TokenUsage.displayInput`) because cache write is input-side
@@ -96,8 +96,10 @@ Source: <https://platform.openai.com/docs/pricing> (and Azure OpenAI mirror)
 Last verified: 2026-07-09
 
 OpenAI publishes a cached-input price = 0.1× input for the GPT-5 family.
-Reasoning output is billed at the output rate (Token Watch folds
-`reasoningOutput` into the output cost for Codex records that split it out).
+Reasoning output is a subset of `output_tokens` per OpenAI's API spec
+(`output_tokens_details.reasoning_tokens` is "a detailed breakdown of the
+output tokens"; `total = input + output`, not `input + output + reasoning`),
+so it is already charged inside the output rate — not billed a second time.
 
 | Model           | Input / MTok | Cached input / MTok | Output / MTok |
 | --------------- | -----------: | ------------------: | ------------: |
@@ -235,8 +237,7 @@ cost_usd = ( input       * inputPrice        / 1_000_000 )
          + ( cacheRead   * cachedInputPrice  / 1_000_000 )
          + ( cacheWrite5m * cacheWrite5mPrice / 1_000_000 )   // 1.25× input for Claude; = input otherwise
          + ( cacheWrite1h * cacheWrite1hPrice / 1_000_000 )   // 2× input for Claude; = input otherwise
-         + ( output      * outputPrice       / 1_000_000 )
-         + ( reasoningOutput * outputPrice   / 1_000_000 )   // where separately logged
+         + ( output      * outputPrice       / 1_000_000 )   // incl. reasoning (subset of output, not additive)
 ```
 
 Unknown models (no catalog match) contribute **$0** to the estimate and the
